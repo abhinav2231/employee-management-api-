@@ -1,4 +1,4 @@
 """
-LedgerForge API — The Python Backbone of Aura WorkforceOS
+LedgerForge API — Core Payroll, Accounting & Employee Data Engine
 """
 __version__ = "0.1.0"

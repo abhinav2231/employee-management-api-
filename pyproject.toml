@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ledgerforge"
 version = "0.1.0"
-description = "LedgerForge — The Python Backbone of Aura WorkforceOS (People, Compensation & Financial Ledger Engine)"
+description = "LedgerForge: WorkforceOS Section 1 - Core Payroll, Accounting & Employee Data Engine (Zenith Nova Technologies)"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -15,7 +15,9 @@ dependencies = [
     "pydantic-settings>=2.2.0,<3.0.0",
     "email-validator>=2.0.0",
     "sqlalchemy>=2.0.28,<3.0.0",
+    "alembic>=1.13.0,<2.0.0",
     "psycopg2-binary>=2.9.9",
+    "openpyxl>=3.1.2",
 ]
 
 [project.optional-dependencies]

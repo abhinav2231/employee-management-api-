@@ -3,28 +3,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from app.core.config import settings
+from app.core.exceptions import register_exception_handlers
 from app.api.v1.api import api_router
+from app.api.v1.endpoints import employees, departments
 from app.schemas.health import HealthResponse
 from app.services.health_service import health_service
 
 
 def create_application() -> FastAPI:
     """
-    Application factory initializing FastAPI with configurations and routers.
+    Application factory initializing FastAPI with configurations, error handlers, and routers.
     """
     application = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
         description=(
-            "LedgerForge: The Python backbone of Aura WorkforceOS. "
-            "Layered FastAPI service holding people, compensation, and financial ledger records. "
-            "Features automatic OpenAPI docs, modular service-oriented architecture, "
-            "and Dockerized PostgreSQL integration."
+            "LedgerForge API: WorkforceOS Section 1 - Core Payroll, Accounting & Employee Data Engine for Zenith Nova Technologies Pvt Ltd. "
+            "Features automated OpenAPI docs, service-oriented architecture, and Dockerized PostgreSQL integration."
         ),
         openapi_url=f"{settings.API_V1_STR}/openapi.json",
         docs_url="/docs",
         redoc_url="/redoc",
     )
+
+    # Register centralized exception handlers for uniform error format
+    register_exception_handlers(application)
 
     # CORS configuration
     application.add_middleware(
@@ -56,8 +59,20 @@ def create_application() -> FastAPI:
     def top_level_health() -> HealthResponse:
         return health_service.get_health()
 
-    # Mount versioned API routes (e.g. /api/v1/health, /api/v1/employees)
+    # Mount versioned API routes (/api/v1/...)
     application.include_router(api_router, prefix=settings.API_V1_STR)
+
+    # Top-level route aliases for convenience (/employees, /departments)
+    application.include_router(
+        employees.router,
+        prefix="/employees",
+        include_in_schema=False,
+    )
+    application.include_router(
+        departments.router,
+        prefix="/departments",
+        include_in_schema=False,
+    )
 
     return application
 

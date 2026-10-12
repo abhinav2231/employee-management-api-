@@ -1,7 +1,5 @@
-# LedgerForge — The Python Backbone of Aura WorkforceOS
-## Task 1: Project Skeleton & Early Handoff Package
-
-> *"A ledger is the book where a company records its money. To forge means to build something strong. **LedgerForge** is the strong engine that holds your people, pays them, and records every rupee in the books. It is the Python backbone of **WorkforceOS**."*
+# LedgerForge — Core Payroll, Accounting & Employee Data Engine
+### Zenith Nova Technologies Pvt Ltd | WorkforceOS Section 1 (Python)
 
 A production-ready, layered **FastAPI** application skeleton backed by **PostgreSQL** in **Docker Compose**, with environment configuration via `pydantic-settings`, automated testing via `pytest`, and an early team handoff package (API contract and sample dataset for all 6 cross-functional teams).
 
@@ -104,23 +102,132 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Run Pytest Suite
+### 3. Run Database Migrations (Alembic)
 
 ```bash
-pytest
+# Inside Docker container:
+docker compose exec -T api alembic upgrade head
+
+# Or locally from activated virtual environment:
+alembic upgrade head
+```
+
+### 4. Run Pytest Suite
+
+```bash
+# Inside Docker container:
+docker compose exec -T api pytest -v
+
+# Or locally from activated virtual environment:
+pytest -v
 ```
 
 Expected output:
 ```text
-tests/test_health.py::test_top_level_health_endpoint PASSED
-tests/test_health.py::test_api_v1_health_endpoint PASSED
+tests/test_health.py::test_top_level_health_endpoint PASSED              [ 11%]
+tests/test_health.py::test_api_v1_health_endpoint PASSED                 [ 22%]
+tests/test_models.py::test_unique_email_constraint PASSED                [ 33%]
+tests/test_models.py::test_salary_check_constraint PASSED                [ 44%]
+tests/test_models.py::test_manager_hierarchy_relationship PASSED         [ 55%]
+tests/test_models.py::test_department_foreign_key_and_relationship PASSED [ 66%]
+tests/test_models.py::test_multiple_roles_and_unique_assignment PASSED   [ 77%]
+tests/test_models.py::test_soft_delete_preservation PASSED               [ 88%]
+tests/test_models.py::test_unique_department_and_role_constraints PASSED [100%]
+============================== 9 passed in 1.12s ===============================
 ```
 
-### 4. Run API Server Locally (Without Docker)
+### 5. Run API Server Locally (Without Docker)
 
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
+
+---
+
+## 🏛️ Task 2: Employee, Department & Role Data Model
+
+### 1. Entity Relationship (ER) Diagram
+
+```mermaid
+erDiagram
+    DEPARTMENTS ||--o{ EMPLOYEES : "employs"
+    EMPLOYEES ||--o{ EMPLOYEES : "manages (manager_id)"
+    EMPLOYEES ||--o{ EMPLOYEE_ROLES : "holds"
+    ROLES ||--o{ EMPLOYEE_ROLES : "assigned_to"
+
+    DEPARTMENTS {
+        int id PK "Auto-increment ID"
+        string name UK "Unique department name"
+        string code UK "Unique department short code"
+        string description "Description"
+        boolean is_active "Active flag"
+        timestamp created_at "Audit created timestamp"
+        timestamp updated_at "Audit updated timestamp"
+    }
+
+    ROLES {
+        int id PK "Auto-increment ID"
+        string title UK "Unique role title"
+        string description "Responsibilities"
+        string level "Seniority level"
+        boolean is_active "Active flag"
+        timestamp created_at "Audit created timestamp"
+        timestamp updated_at "Audit updated timestamp"
+    }
+
+    EMPLOYEES {
+        int id PK "Auto-increment ID"
+        string first_name "First name"
+        string last_name "Last name"
+        string email UK "Unique corporate email"
+        int department_id FK "References DEPARTMENTS(id)"
+        int manager_id FK "Self-reference to EMPLOYEES(id)"
+        numeric salary "Salary (CHECK > 0)"
+        date hire_date "Date of joining"
+        boolean is_active "Soft-delete active flag"
+        timestamp created_at "Audit created timestamp"
+        timestamp updated_at "Audit updated timestamp"
+    }
+
+    EMPLOYEE_ROLES {
+        int id PK "Auto-increment ID"
+        int employee_id FK "References EMPLOYEES(id)"
+        int role_id FK "References ROLES(id)"
+        boolean is_primary "Primary role flag for compensation"
+        timestamp assigned_at "Assignment timestamp"
+    }
+```
+
+Detailed ER specifications are documented in [`docs/er_diagram.md`](docs/er_diagram.md).
+
+### 2. Architectural Design Decision: One Role vs. Many Roles
+
+**Decision:** Employees can hold **multiple roles** via the `employee_roles` association model, designating one as primary via `is_primary: bool`.
+
+**Rationale:**
+1. **Real-world Organizational Needs:** In modern tech and workforce organizations, an employee always holds a primary job designation (e.g. *Senior Software Engineer*) tied to compensation and salary bands, but often carries secondary operational or governance responsibilities (e.g. *Incident Commander*, *Hiring Bar Raiser*, *Team Lead*, *Data Protection Officer*).
+2. **Future-Proofing Schema:** Storing roles in a junction table (`employee_roles`) prevents future breaking schema migrations when permissions, access tiers, or secondary responsibilities are added.
+3. **Dual Compatibility:** Queries needing the primary position simply filter `is_primary == True`, while audits and access controls query all assigned roles.
+
+### 3. Manager Hierarchy & Self-Referential Relationship
+- `manager_id` points to `employees.id` (`ondelete="SET NULL"`).
+- Top executives have `manager_id = NULL`.
+- Traversal supported in both directions:
+  - `employee.manager`: Fetches the manager.
+  - `employee.direct_reports`: Returns all team members reporting to this manager.
+
+### 4. Constraints & Search Indexes
+- **Email Uniqueness:** `UNIQUE (email)` prevents duplicate employee records.
+- **Positive Compensation:** `CHECK (salary > 0)` rejects negative or zero salaries.
+- **Search Indexes:**
+  - `ix_employees_name`: Composite index on `(last_name, first_name)` for fast roster lookup.
+  - `ix_employees_dept_active`: Composite index on `(department_id, is_active)` for active department employee listings.
+  - `ix_employees_email`, `ix_employees_manager_id`: Fast direct query indexing.
+
+### 5. Alembic Database Migrations
+Migrations are fully scripted and version-controlled under `alembic/versions/`:
+- **Upgrade to latest schema:** `docker compose exec -T api alembic upgrade head`
+- **Rollback to clean state:** `docker compose exec -T api alembic downgrade base`
 
 ---
 
@@ -136,6 +243,69 @@ As required for cross-team alignment:
 
 ---
 
-## 🔗 Connection to Next Task (Task 2)
+## ⚡ Task 3: Employee & Team APIs
 
-The running app and database provide the foundational environment where **Task 2** will create the employee database tables and SQLAlchemy ORM models in `app/models/` and migrations.
+### 1. Endpoints Overview
+
+All endpoints are mounted under `/api/v1/` with top-level aliases (`/employees`, `/departments`):
+
+| Method | Endpoint | Description | Status Code | Query / Body Params |
+|---|---|---|---|---|
+| `POST` | `/api/v1/employees` | Create a new employee with department & primary role | `201 Created` | JSON body (`EmployeeCreate`) |
+| `GET` | `/api/v1/employees` | List active employees with pagination & search | `200 OK` | `?page=1&size=20&department=ENG&q=Smith` |
+| `GET` | `/api/v1/employees/{id}` | Get detailed employee profile by ID | `200 OK` | Path `id` |
+| `PATCH`| `/api/v1/employees/{id}` | Partial update (first/last name, salary, manager, etc.) | `200 OK` | Path `id`, JSON body (`EmployeeUpdate`) |
+| `DELETE`| `/api/v1/employees/{id}` | Soft delete employee (sets `is_active=False`) | `204 No Content`| Path `id` |
+| `GET` | `/api/v1/employees/{id}/team` | Get manager and their direct reports | `200 OK` | Path `id` |
+| `GET` | `/api/v1/departments` | List all departments with active headcounts | `200 OK` | — |
+| `GET` | `/api/v1/departments/{id}` | Get single department with active headcount | `200 OK` | Path `id` |
+| `GET` | `/api/v1/departments/{id}/employees` | Get paginated employees in a department | `200 OK` | Path `id`, `?page=1&size=20` |
+
+### 2. Service Layer Separation (Zero Business Logic in Routes)
+
+Routes act strictly as lean HTTP controllers:
+- **`app/services/employee_service.py`**: Handles employee validation, cycle detection (e.g. self-manager prevention), database transactions, soft-deletion, search filtering, and pagination math.
+- **`app/services/department_service.py`**: Handles department retrieval, active headcount aggregation, and department roster pagination.
+- **`app/schemas/`**: Pydantic schemas enforce strict contract isolation between input (`EmployeeCreate`, `EmployeeUpdate`) and output (`EmployeeResponse`, `DepartmentResponse`, `PaginatedResponse`).
+
+### 3. Validations & Rules
+- **Email Validation**: Valid RFC-compliant email address with unique constraint checking.
+- **Hire Date Validation**: Joining date is prohibited from being in the future (`hire_date <= date.today()`).
+- **Name Validation**: First and last names must be non-empty strings with whitespace stripped.
+- **Soft Delete**: `DELETE /employees/{id}` sets `is_active = False` to preserve payroll and historical audit trails. Soft-deleted records are automatically excluded from directory rosters unless explicitly requested.
+- **Manager Validation**: Self-assignment as one's own manager is prevented with a 400 Bad Request error.
+
+### 4. Unified Error Format
+All application errors, HTTP exceptions, and request validation errors return a consistent JSON envelope:
+```json
+{
+  "detail": "Employee with ID 99999 not found",
+  "error_code": "NOT_FOUND",
+  "field": "employee_id"
+}
+```
+
+### 5. Automated Test Suite (25 Tests)
+The comprehensive test suite in `tests/` covers:
+- CRUD lifecycles for employees and departments
+- Pagination math (`total`, `page`, `size`, `pages`)
+- Combined search (`q`) and department filtering
+- Bad inputs: future hire dates, empty/blank names, non-existent department foreign keys, duplicate emails, self-manager cycles
+- Soft-delete roster filtering and retrieval
+
+Run tests anytime:
+```bash
+# In Docker:
+docker compose exec -T api pytest -v
+
+# Locally on host:
+pytest -v
+```
+
+---
+
+## 🔗 Connection to Next Task (Task 4)
+
+Now that full CRUD, filtering, pagination, and team hierarchy APIs are operational and verified through `/docs`, **Task 4** will provide automated realistic data generation and bulk seeding pipelines to stress-test directories, performance, and pagination at scale.
+
+

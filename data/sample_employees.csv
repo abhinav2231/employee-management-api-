@@ -1,11 +1,11 @@
-id,first_name,last_name,email,department,role,salary,hire_date,is_active
-1,Alice,Smith,alice.smith@example.com,Engineering,Lead Backend Engineer,125000.0,2021-03-15,true
-2,Bob,Johnson,bob.johnson@example.com,Engineering,DevOps / Infrastructure Engineer,115000.0,2021-06-01,true
-3,Carol,Williams,carol.williams@example.com,Product,Senior Product Manager,120000.0,2022-01-10,true
-4,David,Brown,david.brown@example.com,Engineering,Frontend Engineer,98000.0,2022-04-18,true
-5,Elena,Rostova,elena.rostova@example.com,Design,UI/UX Designer,92000.0,2022-08-01,true
-6,Frank,Miller,frank.miller@example.com,Human Resources,HR Operations Specialist,75000.0,2023-02-14,true
-7,Grace,Lee,grace.lee@example.com,Finance,Financial Analyst,88000.0,2023-05-20,true
-8,Hassan,Al-Mansoor,hassan.mansoor@example.com,Engineering,Data Engineer,110000.0,2023-09-01,true
-9,Iris,Dupont,iris.dupont@example.com,Marketing,Growth Marketing Lead,96000.0,2024-01-15,true
-10,Jack,Taylor,jack.taylor@example.com,Customer Success,Support Engineer,70000.0,2024-03-01,false
+id,employee_code,first_name,last_name,email,department,role,salary,hire_date,is_active
+1,EMP-0001,Ganesh,Murthy,ganesh.murthy@znova-demo.example,Engineering,Associate Software Engineer,240480.0,2012-01-19,False
+2,EMP-0002,Jatin,Jayaraman,jatin.jayaraman@znova-demo.example,Finance & Accounts,Finance Manager,1908600.0,2012-01-31,True
+3,EMP-0003,Uday,Naik,uday.naik@znova-demo.example,Operations & IT,Operations Executive,205068.0,2012-03-08,False
+4,EMP-0004,Zaid,Selvam,zaid.selvam@znova-demo.example,Data & AI,Data Engineer,1381956.0,2012-03-20,True
+5,EMP-0005,Janani,Philip,janani.philip@znova-demo.example,Product & Design,Associate Product Analyst,129132.0,2012-03-28,False
+6,EMP-0006,Tejas,Chowdhury,tejas.chowdhury@znova-demo.example,Executive Office,Chief Executive Officer,6041256.0,2012-04-02,True
+7,EMP-0007,Jyothi,Chowdhury,jyothi.chowdhury@znova-demo.example,Engineering,DevOps Engineer,973092.0,2012-04-03,False
+8,EMP-0008,Vidya,Saxena,vidya.saxena@znova-demo.example,Customer Support,Senior Support Specialist,278664.0,2012-05-07,False
+9,EMP-0009,Ramesh,Siddiqui,ramesh.siddiqui@znova-demo.example,Sales,Sales Manager,1128216.0,2012-07-18,False
+10,EMP-0010,Faisal,Das,faisal.das@znova-demo.example,Engineering,Senior Software Engineer,715656.0,2012-09-28,False

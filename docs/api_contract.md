@@ -1,26 +1,27 @@
-# LedgerForge API — Early API Contract (Draft v1) — Aura WorkforceOS
+# LedgerForge API — Core API Contract
 
-*LedgerForge is the Python backbone of Aura WorkforceOS: holding people, compensation, and recording every rupee in the books.*
-
-**Handoff Target:** All 6 Cross-Functional Teams (Frontend, Integrations, Analytics, Payroll, Audit, Core)  
-**Target Release:** Day 2 Early Alignment  
+**Company:** Zenith Nova Technologies Pvt Ltd  
+**Target:** Core Payroll, Accounting & WorkforceOS  
 **Base URL:** `http://localhost:8000/api/v1` (Docker Compose / Local Dev)  
 **Interactive Docs:** `http://localhost:8000/docs` (Swagger UI) | `http://localhost:8000/redoc` (ReDoc)
 
 ---
 
-## 1. Planned Endpoints Summary Table
+## 1. Implemented Endpoints Summary Table
 
 | HTTP Method | Path | Request Body | Success Status | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | **GET** | `/health` | None | `200 OK` | Top-level system liveness & health check |
 | **GET** | `/api/v1/health` | None | `200 OK` | Versioned API health check |
-| **GET** | `/api/v1/employees` | Query params (`skip`, `limit`, `department`, `is_active`) | `200 OK` | List employees with pagination and filters |
-| **POST** | `/api/v1/employees` | `EmployeeCreate` | `201 Created` | Create a new employee record |
+| **POST** | `/api/v1/employees` | `EmployeeCreate` (JSON) | `201 Created` | Create new employee with department & role |
+| **GET** | `/api/v1/employees` | Query params (`page`, `size`, `department`, `q`, `include_inactive`) | `200 OK` | List employees with pagination, filter & search |
 | **GET** | `/api/v1/employees/{id}` | None | `200 OK` | Retrieve single employee by ID |
-| **PUT** | `/api/v1/employees/{id}` | `EmployeeUpdate` (full/partial) | `200 OK` | Update existing employee details |
-| **DELETE** | `/api/v1/employees/{id}` | None | `204 No Content` | Delete employee record |
-| **GET** | `/api/v1/departments` | None | `200 OK` | List distinct departments and headcounts |
+| **PATCH**| `/api/v1/employees/{id}` | `EmployeeUpdate` (JSON) | `200 OK` | Partial update of employee details |
+| **DELETE**| `/api/v1/employees/{id}` | None | `204 No Content` | Soft delete employee (`is_active = false`) |
+| **GET** | `/api/v1/employees/{id}/team` | None | `200 OK` | Direct reports reporting to manager |
+| **GET** | `/api/v1/departments` | None | `200 OK` | List all 11 departments and active headcounts |
+| **GET** | `/api/v1/departments/{id}` | None | `200 OK` | Retrieve single department by ID |
+| **GET** | `/api/v1/departments/{id}/employees` | Query params (`page`, `size`) | `200 OK` | Paginated employee roster for a department |
 
 ---
 

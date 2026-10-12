@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     )
 
     # Core App Settings
-    PROJECT_NAME: str = "LedgerForge (Aura WorkforceOS)"
+    PROJECT_NAME: str = "LedgerForge - Zenith Nova Technologies"
     VERSION: str = "0.1.0"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
-    POSTGRES_DB: str = "ledgerforge_db"
+    POSTGRES_DB: str = "aura_workforce_db"
 
     # Optional override for direct full connection string
     DATABASE_URL: Optional[str] = None
@@ -37,12 +37,22 @@ class Settings(BaseSettings):
     def SQLALCHEMY_DATABASE_URI(self) -> str:
         """
         Returns DATABASE_URL if provided, otherwise builds the connection string.
+        Automatically resolves host 'db' to 'localhost' when running on host machine.
         """
+        import os
+        is_container = os.path.exists("/.dockerenv")
         if self.DATABASE_URL:
+            if "@db:" in self.DATABASE_URL and not is_container:
+                return self.DATABASE_URL.replace("@db:", "@localhost:")
             return self.DATABASE_URL
+
+        host = self.POSTGRES_SERVER
+        if host == "db" and not is_container:
+            host = "localhost"
+
         return (
             f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
-            f"{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+            f"{host}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
 
