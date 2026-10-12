@@ -1,6 +1,9 @@
-# Employee Management API — Task 1: Project Skeleton & Early Handoff Package
+# LedgerForge — The Python Backbone of Aura WorkforceOS
+## Task 1: Project Skeleton & Early Handoff Package
 
-A production-ready, layered **FastAPI** application skeleton backed by **PostgreSQL** in **Docker Compose**, with environment configuration via `pydantic-settings`, automated testing via `pytest`, and an early team handoff package (API contract and sample dataset).
+> *"A ledger is the book where a company records its money. To forge means to build something strong. **LedgerForge** is the strong engine that holds your people, pays them, and records every rupee in the books. It is the Python backbone of **WorkforceOS**."*
+
+A production-ready, layered **FastAPI** application skeleton backed by **PostgreSQL** in **Docker Compose**, with environment configuration via `pydantic-settings`, automated testing via `pytest`, and an early team handoff package (API contract and sample dataset for all 6 cross-functional teams).
 
 ---
 

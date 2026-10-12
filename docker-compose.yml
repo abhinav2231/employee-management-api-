@@ -1,18 +1,18 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: employee_db
+    container_name: ledgerforge_db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-employee_db}
+      POSTGRES_DB: ${POSTGRES_DB:-ledgerforge_db}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-employee_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ledgerforge_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,7 +22,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: employee_api
+    container_name: ledgerforge_api
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -30,7 +30,7 @@ services:
       - .env
     environment:
       POSTGRES_SERVER: db
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-employee_db}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-ledgerforge_db}
     depends_on:
       db:
         condition: service_healthy

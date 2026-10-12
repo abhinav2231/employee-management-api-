@@ -16,7 +16,8 @@ def create_application() -> FastAPI:
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
         description=(
-            "Layered FastAPI Employee Management API. "
+            "LedgerForge: The Python backbone of Aura WorkforceOS. "
+            "Layered FastAPI service holding people, compensation, and financial ledger records. "
             "Features automatic OpenAPI docs, modular service-oriented architecture, "
             "and Dockerized PostgreSQL integration."
         ),

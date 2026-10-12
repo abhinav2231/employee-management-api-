@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     )
 
     # Core App Settings
-    PROJECT_NAME: str = "Employee Management API"
+    PROJECT_NAME: str = "LedgerForge (Aura WorkforceOS)"
     VERSION: str = "0.1.0"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
-    POSTGRES_DB: str = "employee_db"
+    POSTGRES_DB: str = "ledgerforge_db"
 
     # Optional override for direct full connection string
     DATABASE_URL: Optional[str] = None

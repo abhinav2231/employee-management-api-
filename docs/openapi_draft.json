@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Employee Management API",
+    "title": "LedgerForge (Aura WorkforceOS)",
     "version": "0.1.0",
-    "description": "Draft OpenAPI specification for early team handoff."
+    "description": "Draft OpenAPI specification for LedgerForge — The Python backbone of Aura WorkforceOS."
   },
   "paths": {
     "/health": {

@@ -1,6 +1,8 @@
-# Employee Management API — Early API Contract (Draft v1)
+# LedgerForge API — Early API Contract (Draft v1) — Aura WorkforceOS
 
-**Handoff Target:** Frontend & Integrations Teams  
+*LedgerForge is the Python backbone of Aura WorkforceOS: holding people, compensation, and recording every rupee in the books.*
+
+**Handoff Target:** All 6 Cross-Functional Teams (Frontend, Integrations, Analytics, Payroll, Audit, Core)  
 **Target Release:** Day 2 Early Alignment  
 **Base URL:** `http://localhost:8000/api/v1` (Docker Compose / Local Dev)  
 **Interactive Docs:** `http://localhost:8000/docs` (Swagger UI) | `http://localhost:8000/redoc` (ReDoc)

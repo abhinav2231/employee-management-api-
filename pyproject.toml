@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "employee-management-api"
+name = "ledgerforge"
 version = "0.1.0"
-description = "Layered FastAPI Employee Management API Skeleton"
+description = "LedgerForge — The Python Backbone of Aura WorkforceOS (People, Compensation & Financial Ledger Engine)"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
