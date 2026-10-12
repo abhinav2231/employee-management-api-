@@ -1,0 +1,112 @@
+[
+  {
+    "id": 1,
+    "first_name": "Alice",
+    "last_name": "Smith",
+    "email": "alice.smith@example.com",
+    "department": "Engineering",
+    "role": "Lead Backend Engineer",
+    "salary": 125000.0,
+    "hire_date": "2021-03-15",
+    "is_active": true
+  },
+  {
+    "id": 2,
+    "first_name": "Bob",
+    "last_name": "Johnson",
+    "email": "bob.johnson@example.com",
+    "department": "Engineering",
+    "role": "DevOps / Infrastructure Engineer",
+    "salary": 115000.0,
+    "hire_date": "2021-06-01",
+    "is_active": true
+  },
+  {
+    "id": 3,
+    "first_name": "Carol",
+    "last_name": "Williams",
+    "email": "carol.williams@example.com",
+    "department": "Product",
+    "role": "Senior Product Manager",
+    "salary": 120000.0,
+    "hire_date": "2022-01-10",
+    "is_active": true
+  },
+  {
+    "id": 4,
+    "first_name": "David",
+    "last_name": "Brown",
+    "email": "david.brown@example.com",
+    "department": "Engineering",
+    "role": "Frontend Engineer",
+    "salary": 98000.0,
+    "hire_date": "2022-04-18",
+    "is_active": true
+  },
+  {
+    "id": 5,
+    "first_name": "Elena",
+    "last_name": "Rostova",
+    "email": "elena.rostova@example.com",
+    "department": "Design",
+    "role": "UI/UX Designer",
+    "salary": 92000.0,
+    "hire_date": "2022-08-01",
+    "is_active": true
+  },
+  {
+    "id": 6,
+    "first_name": "Frank",
+    "last_name": "Miller",
+    "email": "frank.miller@example.com",
+    "department": "Human Resources",
+    "role": "HR Operations Specialist",
+    "salary": 75000.0,
+    "hire_date": "2023-02-14",
+    "is_active": true
+  },
+  {
+    "id": 7,
+    "first_name": "Grace",
+    "last_name": "Lee",
+    "email": "grace.lee@example.com",
+    "department": "Finance",
+    "role": "Financial Analyst",
+    "salary": 88000.0,
+    "hire_date": "2023-05-20",
+    "is_active": true
+  },
+  {
+    "id": 8,
+    "first_name": "Hassan",
+    "last_name": "Al-Mansoor",
+    "email": "hassan.mansoor@example.com",
+    "department": "Engineering",
+    "role": "Data Engineer",
+    "salary": 110000.0,
+    "hire_date": "2023-09-01",
+    "is_active": true
+  },
+  {
+    "id": 9,
+    "first_name": "Iris",
+    "last_name": "Dupont",
+    "email": "iris.dupont@example.com",
+    "department": "Marketing",
+    "role": "Growth Marketing Lead",
+    "salary": 96000.0,
+    "hire_date": "2024-01-15",
+    "is_active": true
+  },
+  {
+    "id": 10,
+    "first_name": "Jack",
+    "last_name": "Taylor",
+    "email": "jack.taylor@example.com",
+    "department": "Customer Success",
+    "role": "Support Engineer",
+    "salary": 70000.0,
+    "hire_date": "2024-03-01",
+    "is_active": false
+  }
+]

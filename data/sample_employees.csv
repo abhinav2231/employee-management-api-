@@ -1,0 +1,11 @@
+id,first_name,last_name,email,department,role,salary,hire_date,is_active
+1,Alice,Smith,alice.smith@example.com,Engineering,Lead Backend Engineer,125000.0,2021-03-15,true
+2,Bob,Johnson,bob.johnson@example.com,Engineering,DevOps / Infrastructure Engineer,115000.0,2021-06-01,true
+3,Carol,Williams,carol.williams@example.com,Product,Senior Product Manager,120000.0,2022-01-10,true
+4,David,Brown,david.brown@example.com,Engineering,Frontend Engineer,98000.0,2022-04-18,true
+5,Elena,Rostova,elena.rostova@example.com,Design,UI/UX Designer,92000.0,2022-08-01,true
+6,Frank,Miller,frank.miller@example.com,Human Resources,HR Operations Specialist,75000.0,2023-02-14,true
+7,Grace,Lee,grace.lee@example.com,Finance,Financial Analyst,88000.0,2023-05-20,true
+8,Hassan,Al-Mansoor,hassan.mansoor@example.com,Engineering,Data Engineer,110000.0,2023-09-01,true
+9,Iris,Dupont,iris.dupont@example.com,Marketing,Growth Marketing Lead,96000.0,2024-01-15,true
+10,Jack,Taylor,jack.taylor@example.com,Customer Success,Support Engineer,70000.0,2024-03-01,false
