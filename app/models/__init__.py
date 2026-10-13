@@ -4,6 +4,8 @@ from app.models.department import Department
 from app.models.role import Role, EmployeeRole
 from app.models.employee import Employee
 from app.models.assignment import EmployeeAssignment
+from app.models.attendance import Attendance
+from app.models.salary import SalaryRecord
 
 __all__ = [
     "Base",
@@ -13,4 +15,6 @@ __all__ = [
     "EmployeeRole",
     "Employee",
     "EmployeeAssignment",
+    "Attendance",
+    "SalaryRecord",
 ]

@@ -27,7 +27,7 @@ def db() -> Generator[Session, None, None]:
     session = SessionLocal()
     try:
         # Clean existing test data before each test
-        session.execute(text("TRUNCATE TABLE employee_assignments, employee_roles, employees, roles, departments CASCADE;"))
+        session.execute(text("DELETE FROM attendance; DELETE FROM salary_records; DELETE FROM employee_assignments; DELETE FROM employee_roles; DELETE FROM employees; DELETE FROM roles; DELETE FROM departments;"))
         session.commit()
     except Exception:
         session.rollback()
@@ -40,7 +40,7 @@ def db() -> Generator[Session, None, None]:
     finally:
         session.rollback()
         try:
-            session.execute(text("TRUNCATE TABLE employee_assignments, employee_roles, employees, roles, departments CASCADE;"))
+            session.execute(text("DELETE FROM attendance; DELETE FROM salary_records; DELETE FROM employee_assignments; DELETE FROM employee_roles; DELETE FROM employees; DELETE FROM roles; DELETE FROM departments;"))
             session.commit()
         except Exception:
             session.rollback()

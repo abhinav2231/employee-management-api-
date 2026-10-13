@@ -1,7 +1,7 @@
-# LedgerForge — Entity Relationship (ER) Data Model
+# Aura Workforce OS — Entity Relationship (ER) Data Model
 
 ## 1. Overview
-The **LedgerForge** data model provides the normalized relational foundation for workforce records, organization hierarchy, multi-role assignments, and career progression history for **Zenith Nova Technologies Pvt Ltd**.
+The **Aura Workforce OS** data model provides the normalized relational foundation for workforce records, organization hierarchy, multi-role assignments, compensation records, daily attendance tracking, and career progression history.
 
 ---
 
@@ -44,7 +44,7 @@ erDiagram
         string employee_code UK "Unique code (EMP-0001 to EMP-0745)"
         string first_name "First name"
         string last_name "Last name"
-        string email UK "Work email (@znova-demo.example)"
+        string email UK "Corporate work email (@auraworkforce.io)"
         int department_id FK "References DEPARTMENTS(id)"
         int manager_id FK "Self-reference to EMPLOYEES(id)"
         numeric salary "Annual compensation in INR (CHECK > 0)"

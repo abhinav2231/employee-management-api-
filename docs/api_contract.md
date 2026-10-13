@@ -1,8 +1,9 @@
-# LedgerForge API — Core API Contract
+# Aura Workforce OS API — Core API Contract
 
-**Company:** Zenith Nova Technologies Pvt Ltd  
-**Target:** Core Payroll, Accounting & WorkforceOS  
+**System:** Aura Workforce OS  
+**Target:** Core Payroll, Accounting & Workforce Operating System  
 **Base URL:** `http://localhost:8000/api/v1` (Docker Compose / Local Dev)  
+*(Enterprise Master Dataset: Aura Workforce OS)*  
 **Interactive Docs:** `http://localhost:8000/docs` (Swagger UI) | `http://localhost:8000/redoc` (ReDoc)
 
 ---

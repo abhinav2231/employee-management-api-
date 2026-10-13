@@ -20,7 +20,7 @@ def test_unique_email_constraint(db: Session):
     emp1 = Employee(
         first_name="Ada",
         last_name="Lovelace",
-        email="ada.lovelace@ledgerforge.io",
+        email="ada.lovelace@auraworkforce.io",
         department_id=dept.id,
         salary=Decimal("120000.00"),
         hire_date=date(2024, 1, 15),
@@ -31,7 +31,7 @@ def test_unique_email_constraint(db: Session):
     emp2 = Employee(
         first_name="Another",
         last_name="Ada",
-        email="ada.lovelace@ledgerforge.io",  # Duplicate email
+        email="ada.lovelace@auraworkforce.io",  # Duplicate email
         department_id=dept.id,
         salary=Decimal("95000.00"),
         hire_date=date(2024, 2, 1),
@@ -54,7 +54,7 @@ def test_salary_check_constraint(db: Session):
     invalid_emp_zero = Employee(
         first_name="Zero",
         last_name="Salary",
-        email="zero@ledgerforge.io",
+        email="zero@auraworkforce.io",
         department_id=dept.id,
         salary=Decimal("0.00"),
         hire_date=date(2024, 1, 1),
@@ -68,7 +68,7 @@ def test_salary_check_constraint(db: Session):
     invalid_emp_neg = Employee(
         first_name="Negative",
         last_name="Salary",
-        email="negative@ledgerforge.io",
+        email="negative@auraworkforce.io",
         department_id=dept.id,
         salary=Decimal("-1000.00"),
         hire_date=date(2024, 1, 1),
@@ -92,7 +92,7 @@ def test_manager_hierarchy_relationship(db: Session):
     ceo = Employee(
         first_name="Satya",
         last_name="Nadella",
-        email="satya@ledgerforge.io",
+        email="satya@auraworkforce.io",
         department_id=dept.id,
         manager_id=None,
         salary=Decimal("500000.00"),
@@ -105,7 +105,7 @@ def test_manager_hierarchy_relationship(db: Session):
     director = Employee(
         first_name="Gwynne",
         last_name="Shotwell",
-        email="gwynne@ledgerforge.io",
+        email="gwynne@auraworkforce.io",
         department_id=dept.id,
         manager_id=ceo.id,
         salary=Decimal("250000.00"),
@@ -118,7 +118,7 @@ def test_manager_hierarchy_relationship(db: Session):
     engineer = Employee(
         first_name="Grace",
         last_name="Hopper",
-        email="grace@ledgerforge.io",
+        email="grace@auraworkforce.io",
         department_id=dept.id,
         manager_id=director.id,
         salary=Decimal("150000.00"),
@@ -134,9 +134,9 @@ def test_manager_hierarchy_relationship(db: Session):
 
     # Verify upward traversal
     assert engineer.manager is not None
-    assert engineer.manager.email == "gwynne@ledgerforge.io"
+    assert engineer.manager.email == "gwynne@auraworkforce.io"
     assert director.manager is not None
-    assert director.manager.email == "satya@ledgerforge.io"
+    assert director.manager.email == "satya@auraworkforce.io"
     assert ceo.manager is None
 
     # Verify downward traversal (direct reports collection)
@@ -158,7 +158,7 @@ def test_department_foreign_key_and_relationship(db: Session):
     emp = Employee(
         first_name="Jony",
         last_name="Ive",
-        email="jony@ledgerforge.io",
+        email="jony@auraworkforce.io",
         department_id=dept.id,
         salary=Decimal("180000.00"),
         hire_date=date(2023, 5, 10),
@@ -171,13 +171,13 @@ def test_department_foreign_key_and_relationship(db: Session):
 
     assert emp.department.name == "Design"
     assert len(dept.employees) == 1
-    assert dept.employees[0].email == "jony@ledgerforge.io"
+    assert dept.employees[0].email == "jony@auraworkforce.io"
 
     # Attempt to insert employee with non-existent department_id
     invalid_emp = Employee(
         first_name="Ghost",
         last_name="User",
-        email="ghost@ledgerforge.io",
+        email="ghost@auraworkforce.io",
         department_id=999999,
         salary=Decimal("50000.00"),
         hire_date=date(2024, 1, 1),
@@ -202,7 +202,7 @@ def test_multiple_roles_and_unique_assignment(db: Session):
     emp = Employee(
         first_name="Linus",
         last_name="Torvalds",
-        email="linus@ledgerforge.io",
+        email="linus@auraworkforce.io",
         department_id=dept.id,
         salary=Decimal("220000.00"),
         hire_date=date(2020, 10, 1),
@@ -242,7 +242,7 @@ def test_soft_delete_preservation(db: Session):
     emp = Employee(
         first_name="David",
         last_name="Clark",
-        email="david.clark@ledgerforge.io",
+        email="david.clark@auraworkforce.io",
         department_id=dept.id,
         salary=Decimal("85000.00"),
         hire_date=date(2023, 2, 1),

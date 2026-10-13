@@ -21,7 +21,8 @@ def view_data() -> None:
     db = SessionLocal()
     try:
         print("=" * 80)
-        print("          ZENITH NOVA TECHNOLOGIES (LEDGERFORGE) - DATABASE OVERVIEW")
+        print("                 AURA WORKFORCE OS - DATABASE OVERVIEW")
+        print("                 Workforce Management & Core Engine")
         print("=" * 80)
 
         # 1. Departments
@@ -52,7 +53,7 @@ def view_data() -> None:
             manager_name = f"{e.manager.first_name} {e.manager.last_name}" if e.manager else "None (CEO)"
             status = "Active" if e.is_active else "Inactive"
             name = f"{e.first_name} {e.last_name}"
-            salary_str = f"₹{e.salary:,.0f}"
+            salary_str = f"INR {e.salary:,.0f}"
             emp_code = e.employee_code or f"ID:{e.id}"
 
             print(f"{emp_code:<10} {name:<22} {dept_code:<6} {role_title:<30} {salary_str:<14} {manager_name:<16} {status}")

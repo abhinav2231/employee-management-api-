@@ -27,7 +27,7 @@ def test_create_employee_success(client: TestClient, setup_dept_and_role):
     payload = {
         "first_name": "Ada",
         "last_name": "Lovelace",
-        "email": "ada.lovelace@ledgerforge.io",
+        "email": "ada.lovelace@auraworkforce.io",
         "department_id": dept.id,
         "role_id": role.id,
         "salary": 130000.00,
@@ -40,7 +40,7 @@ def test_create_employee_success(client: TestClient, setup_dept_and_role):
     assert data["id"] is not None
     assert data["first_name"] == "Ada"
     assert data["last_name"] == "Lovelace"
-    assert data["email"] == "ada.lovelace@ledgerforge.io"
+    assert data["email"] == "ada.lovelace@auraworkforce.io"
     assert data["department"]["code"] == "ENG"
     assert len(data["roles"]) == 1
     assert data["roles"][0]["title"] == "Software Engineer"
@@ -53,7 +53,7 @@ def test_create_employee_duplicate_email_conflict(client: TestClient, setup_dept
     payload = {
         "first_name": "Alan",
         "last_name": "Turing",
-        "email": "alan.turing@ledgerforge.io",
+        "email": "alan.turing@auraworkforce.io",
         "department_id": dept.id,
         "salary": 140000.00,
         "hire_date": str(date.today()),
@@ -77,7 +77,7 @@ def test_create_employee_future_hire_date_rejected(client: TestClient, setup_dep
     payload = {
         "first_name": "Time",
         "last_name": "Traveler",
-        "email": "future@ledgerforge.io",
+        "email": "future@auraworkforce.io",
         "department_id": dept.id,
         "salary": 100000.00,
         "hire_date": str(date.today() + timedelta(days=10)),  # Future date
@@ -96,7 +96,7 @@ def test_create_employee_empty_name_rejected(client: TestClient, setup_dept_and_
     payload = {
         "first_name": "   ",  # Blank name
         "last_name": "Doe",
-        "email": "empty.name@ledgerforge.io",
+        "email": "empty.name@auraworkforce.io",
         "department_id": dept.id,
         "salary": 100000.00,
         "hire_date": str(date.today()),
@@ -113,7 +113,7 @@ def test_create_employee_invalid_department(client: TestClient):
     payload = {
         "first_name": "John",
         "last_name": "Doe",
-        "email": "john.doe@ledgerforge.io",
+        "email": "john.doe@auraworkforce.io",
         "department_id": 99999,  # Non-existent department
         "salary": 90000.00,
         "hire_date": str(date.today()),
@@ -139,7 +139,7 @@ def test_list_employees_pagination_and_search(client: TestClient, db: Session):
             Employee(
                 first_name=f"User{i}",
                 last_name="Test",
-                email=f"user{i}@ledgerforge.io",
+                email=f"user{i}@auraworkforce.io",
                 department_id=dept.id,
                 salary=Decimal("80000.00"),
                 hire_date=date(2023, 1, 1),
@@ -169,7 +169,7 @@ def test_list_employees_pagination_and_search(client: TestClient, db: Session):
     assert res_search.status_code == 200
     data_search = res_search.json()
     assert data_search["total"] == 1
-    assert data_search["items"][0]["email"] == "user3@ledgerforge.io"
+    assert data_search["items"][0]["email"] == "user3@auraworkforce.io"
 
 
 def test_get_employee_by_id(client: TestClient, setup_dept_and_role, db: Session):
@@ -177,7 +177,7 @@ def test_get_employee_by_id(client: TestClient, setup_dept_and_role, db: Session
     emp = Employee(
         first_name="Katherine",
         last_name="Johnson",
-        email="katherine@ledgerforge.io",
+        email="katherine@auraworkforce.io",
         department_id=dept.id,
         salary=Decimal("125000.00"),
         hire_date=date(2022, 5, 1),
@@ -189,7 +189,7 @@ def test_get_employee_by_id(client: TestClient, setup_dept_and_role, db: Session
     # Found
     res = client.get(f"/api/v1/employees/{emp.id}")
     assert res.status_code == 200
-    assert res.json()["email"] == "katherine@ledgerforge.io"
+    assert res.json()["email"] == "katherine@auraworkforce.io"
 
     # Not found
     res_nf = client.get("/api/v1/employees/99999")
@@ -202,7 +202,7 @@ def test_patch_employee(client: TestClient, setup_dept_and_role, db: Session):
     emp = Employee(
         first_name="Margaret",
         last_name="Hamilton",
-        email="margaret@ledgerforge.io",
+        email="margaret@auraworkforce.io",
         department_id=dept.id,
         salary=Decimal("110000.00"),
         hire_date=date(2021, 6, 1),
@@ -234,7 +234,7 @@ def test_delete_employee_soft_delete(client: TestClient, setup_dept_and_role, db
     emp = Employee(
         first_name="Temporary",
         last_name="Worker",
-        email="temp@ledgerforge.io",
+        email="temp@auraworkforce.io",
         department_id=dept.id,
         salary=Decimal("60000.00"),
         hire_date=date(2023, 1, 1),
@@ -266,7 +266,7 @@ def test_get_employee_team(client: TestClient, setup_dept_and_role, db: Session)
     lead = Employee(
         first_name="Lead",
         last_name="Developer",
-        email="lead@ledgerforge.io",
+        email="lead@auraworkforce.io",
         department_id=dept.id,
         salary=Decimal("150000.00"),
         hire_date=date(2020, 1, 1),
@@ -278,7 +278,7 @@ def test_get_employee_team(client: TestClient, setup_dept_and_role, db: Session)
     report1 = Employee(
         first_name="Junior",
         last_name="One",
-        email="jr1@ledgerforge.io",
+        email="jr1@auraworkforce.io",
         department_id=dept.id,
         manager_id=lead.id,
         salary=Decimal("80000.00"),
@@ -287,7 +287,7 @@ def test_get_employee_team(client: TestClient, setup_dept_and_role, db: Session)
     report2 = Employee(
         first_name="Junior",
         last_name="Two",
-        email="jr2@ledgerforge.io",
+        email="jr2@auraworkforce.io",
         department_id=dept.id,
         manager_id=lead.id,
         salary=Decimal("85000.00"),
@@ -302,5 +302,5 @@ def test_get_employee_team(client: TestClient, setup_dept_and_role, db: Session)
     assert data["manager"]["id"] == lead.id
     assert data["total_reports"] == 2
     report_emails = [r["email"] for r in data["direct_reports"]]
-    assert "jr1@ledgerforge.io" in report_emails
-    assert "jr2@ledgerforge.io" in report_emails
+    assert "jr1@auraworkforce.io" in report_emails
+    assert "jr2@auraworkforce.io" in report_emails

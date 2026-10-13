@@ -18,7 +18,7 @@ def create_application() -> FastAPI:
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
         description=(
-            "LedgerForge API: WorkforceOS Section 1 - Core Payroll, Accounting & Employee Data Engine for Zenith Nova Technologies Pvt Ltd. "
+            "Aura Workforce OS: Core Payroll, Accounting & Employee Data Engine. "
             "Features automated OpenAPI docs, service-oriented architecture, and Dockerized PostgreSQL integration."
         ),
         openapi_url=f"{settings.API_V1_STR}/openapi.json",

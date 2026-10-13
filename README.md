@@ -1,7 +1,7 @@
-# LedgerForge — Core Payroll, Accounting & Employee Data Engine
-### Zenith Nova Technologies Pvt Ltd | WorkforceOS Section 1 (Python)
+# Aura Workforce OS — Core Payroll, Accounting & Employee Data Engine
+### Enterprise Workforce Management & Employee Data Engine (Python)
 
-A production-ready, layered **FastAPI** application skeleton backed by **PostgreSQL** in **Docker Compose**, with environment configuration via `pydantic-settings`, automated testing via `pytest`, and an early team handoff package (API contract and sample dataset for all 6 cross-functional teams).
+A production-ready, layered **FastAPI** application skeleton backed by **PostgreSQL** in **Docker Compose**, with environment configuration via `pydantic-settings`, automated testing via `pytest`, and an early team handoff package for Aura Workforce OS.
 
 ---
 
@@ -304,8 +304,70 @@ pytest -v
 
 ---
 
-## 🔗 Connection to Next Task (Task 4)
+## 📊 Task 4: Master Dataset, Seed Pipeline & Early Exports
 
-Now that full CRUD, filtering, pagination, and team hierarchy APIs are operational and verified through `/docs`, **Task 4** will provide automated realistic data generation and bulk seeding pipelines to stress-test directories, performance, and pagination at scale.
+### 1. Objective & Domain Importance
+All six domains (Payroll, AI/ML, Accounting, Time & Attendance, Reporting, and Core Workforce) depend on this master dataset. It establishes the single source of truth for employee records, organizational reporting hierarchy, historical salary compensation revisions, and linked daily attendance.
+
+### 2. Dataset Sourcing & Master Excel Specification
+- **Master Dataset File**: [`data/01_LedgerForge_Python_Master_Dataset.xlsx`](data/01_LedgerForge_Python_Master_Dataset.xlsx)
+- **Source Context**: The enterprise master dataset containing 11 departments (`D00`–`D10`), 58 normalized job roles (`R001`–`R058`), 745 employees (`EMP-0001`–`EMP-0745`), full historical salary revisions and payroll items, and over 150,000 attendance records.
+
+### 3. Data Cleaning & Enrichment Pipeline (`scripts/data_pipeline.py`)
+The pipeline loads and cleans the master dataset using `pandas` and `Faker`:
+1. **Pandas Data Cleaning & Extraction**:
+   - Parses the master Excel workbook sheets (`departments`, `roles`, `employees`, `salary_revisions`, `payroll_items`, `attendance`).
+   - Standardizes employee codes, date timestamps (`hire_date`, `exit_date`), and maps employment status (`Active` vs `Resigned/Terminated` -> `is_active`).
+   - Cleans and rebrands all corporate email addresses to Aura Workforce OS domain: `@auraworkforce.io` (e.g., `first.last@auraworkforce.io`).
+2. **Deterministic Faker Enrichment (`seed=42`)**:
+   - Fixed seeds (`Faker.seed(42)`, `random.seed(42)`, `np.random.seed(42)`) ensure exact repeatability across runs.
+   - Enriches every employee record with realistic corporate mobile phone numbers.
+   - Strictly zero `"test123"` placeholder data.
+3. **Relational Linkage**:
+   - **Departments & Roles**: 11 departments (`D00`–`D10`) and 58 roles mapped across all 745 employees.
+   - **Organizational Hierarchy**: Multi-tier acyclic tree rooted in Executive Leadership (`Tejas Chowdhury`, CEO, `EMP-0006`).
+   - **Salary Compensation**: Base annual fixed salaries from `salary_revisions` + 3,781 monthly salary records from `payroll_items` (basic, allowances, bonuses, deductions, net pay).
+   - **Attendance Tracking**: 36,751 linked daily attendance records covering recent work periods (`PRESENT`, `REMOTE`, `ON_LEAVE`, `HALF_DAY`, `ABSENT`) with check-in/out timestamps and work hours.
+
+### 4. One-Command Seeding Pipeline (`scripts/seed.py`)
+Run the pipeline to populate a clean or existing database in a single command:
+
+```bash
+# In Docker or local environment:
+python -m scripts.seed
+
+# Or via Makefile:
+make seed
+```
+
+#### Safe Repeatable Seeding (Idempotency)
+- **Duplicate Prevention**: Running `python -m scripts.seed` multiple times safely updates or skips existing rows using unique constraints on `email`, `employee_code`, `(employee_id, pay_period)`, and `(employee_id, date)`.
+- Re-running the command produces **0 duplicate records**.
+- To execute a completely clean reseed from scratch:
+  ```bash
+  python -m scripts.seed --reset
+  # Or:
+  make seed-reset
+  ```
+
+### 5. CSV Exports Package (`data/exports/`)
+The seeder automatically generates standard UTF-8 CSV exports for cross-functional domain teams, also runnable on-demand via:
+```bash
+python -m scripts.export_csv
+# Or:
+make export
+```
+
+| Export File | Description | Records |
+|---|---|---|
+| [`data/exports/employees.csv`](data/exports/employees.csv) | Full 745 employee roster with department, role, manager, compensation, and contact info | 745 |
+| [`data/exports/salaries.csv`](data/exports/salaries.csv) | Linked monthly salary breakdowns, base, allowances, bonuses, deductions, and net pay | 3,781 |
+| [`data/exports/attendance.csv`](data/exports/attendance.csv) | Linked daily attendance logs, work hours, and remote/shift notes | 36,751 |
+
+---
+
+## 🔗 Connection to Next Task (Task 5)
+
+With believable, linked employees and organizational reporting hierarchies seeded, **Task 5 (Authentication & Role-Based Access Control)** will secure all APIs with authentication tokens and permission scopes, enforcing department and role-level visibility rules.
 
 

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     )
 
     # Core App Settings
-    PROJECT_NAME: str = "LedgerForge - Zenith Nova Technologies"
+    PROJECT_NAME: str = "Aura Workforce OS"
     VERSION: str = "0.1.0"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True

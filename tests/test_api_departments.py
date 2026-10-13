@@ -27,7 +27,7 @@ def test_list_departments_with_counts(client: TestClient, db: Session):
     e1 = Employee(
         first_name="Alice",
         last_name="Smith",
-        email="alice@ledgerforge.io",
+        email="alice@auraworkforce.io",
         department_id=dept1.id,
         salary=Decimal("110000.00"),
         hire_date=date(2022, 1, 1),
@@ -37,7 +37,7 @@ def test_list_departments_with_counts(client: TestClient, db: Session):
     e2 = Employee(
         first_name="Bob",
         last_name="Jones",
-        email="bob@ledgerforge.io",
+        email="bob@auraworkforce.io",
         department_id=dept1.id,
         salary=Decimal("95000.00"),
         hire_date=date(2021, 1, 1),
@@ -47,7 +47,7 @@ def test_list_departments_with_counts(client: TestClient, db: Session):
     e3 = Employee(
         first_name="Carol",
         last_name="White",
-        email="carol@ledgerforge.io",
+        email="carol@auraworkforce.io",
         department_id=dept2.id,
         salary=Decimal("105000.00"),
         hire_date=date(2023, 1, 1),
@@ -105,7 +105,7 @@ def test_get_department_employees_paginated(client: TestClient, db: Session):
         emp = Employee(
             first_name=f"Seller{i}",
             last_name="Salesperson",
-            email=f"seller{i}@ledgerforge.io",
+            email=f"seller{i}@auraworkforce.io",
             department_id=dept.id,
             salary=Decimal("75000.00"),
             hire_date=date(2023, 2, 1),

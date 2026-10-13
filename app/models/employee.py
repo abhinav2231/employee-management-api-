@@ -18,6 +18,8 @@ from app.models.base import TimestampMixin
 if TYPE_CHECKING:
     from app.models.department import Department
     from app.models.role import EmployeeRole
+    from app.models.attendance import Attendance
+    from app.models.salary import SalaryRecord
 
 
 class Employee(Base, TimestampMixin):
@@ -32,6 +34,7 @@ class Employee(Base, TimestampMixin):
     first_name: Mapped[str] = mapped_column(String(50), nullable=False)
     last_name: Mapped[str] = mapped_column(String(50), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    phone_number: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     work_location: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     employment_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     
@@ -79,6 +82,20 @@ class Employee(Base, TimestampMixin):
     # Multi-role assignments
     employee_roles: Mapped[list["EmployeeRole"]] = relationship(
         "EmployeeRole",
+        back_populates="employee",
+        cascade="all, delete-orphan",
+    )
+
+    # Linked attendance tracking
+    attendances: Mapped[list["Attendance"]] = relationship(
+        "Attendance",
+        back_populates="employee",
+        cascade="all, delete-orphan",
+    )
+
+    # Linked compensation & salary history
+    salary_records: Mapped[list["SalaryRecord"]] = relationship(
+        "SalaryRecord",
         back_populates="employee",
         cascade="all, delete-orphan",
     )
