@@ -31,6 +31,8 @@ services:
     environment:
       POSTGRES_SERVER: db
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-aura_workforce_db}
+    volumes:
+      - .:/app
     depends_on:
       db:
         condition: service_healthy
