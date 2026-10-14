@@ -153,6 +153,7 @@ class EmployeeService:
             manager_id=manager.id if manager else None,
             salary=employee_in.salary,
             hire_date=employee_in.hire_date,
+            phone_number=employee_in.phone_number,
             work_location=employee_in.work_location,
             work_mode=employee_in.work_mode,
             employment_type=employee_in.employment_type,
@@ -328,6 +329,8 @@ class EmployeeService:
             employee.salary = update_data["salary"]
         if "hire_date" in update_data and update_data["hire_date"] is not None:
             employee.hire_date = update_data["hire_date"]
+        if "phone_number" in update_data:
+            employee.phone_number = update_data["phone_number"]
         if "work_location" in update_data:
             employee.work_location = update_data["work_location"]
         if "work_mode" in update_data:
@@ -443,6 +446,7 @@ class EmployeeService:
             first_name=e.first_name,
             last_name=e.last_name,
             email=e.email,
+            phone_number=e.phone_number,
             department_id=e.department_id,
             department=e.department,
             manager_id=e.manager_id,

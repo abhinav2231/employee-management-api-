@@ -3,11 +3,11 @@ from typing import List
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import NotFoundException, ConflictException, BadRequestException
 from app.models.department import Department
 from app.models.employee import Employee
 from app.models.role import EmployeeRole
-from app.schemas.department import DepartmentResponse
+from app.schemas.department import DepartmentResponse, DepartmentCreate, DepartmentUpdate
 from app.schemas.employee import EmployeeResponse
 from app.schemas.common import PaginatedResponse
 from app.schemas.role import RoleBrief
@@ -65,6 +65,119 @@ class DepartmentService:
         )
 
     @staticmethod
+    def create_department(db: Session, dept_in: DepartmentCreate) -> DepartmentResponse:
+        code_clean = dept_in.code.strip().upper()
+        name_clean = dept_in.name.strip()
+
+        existing_code = db.query(Department).filter(Department.code.ilike(code_clean)).first()
+        if existing_code:
+            raise ConflictException(f"Department with code '{code_clean}' already exists", field="code")
+
+        existing_name = db.query(Department).filter(Department.name.ilike(name_clean)).first()
+        if existing_name:
+            raise ConflictException(f"Department with name '{name_clean}' already exists", field="name")
+
+        dept = Department(
+            name=name_clean,
+            code=code_clean,
+            cost_center=dept_in.cost_center,
+            description=dept_in.description,
+            is_active=dept_in.is_active,
+        )
+        db.add(dept)
+        db.commit()
+        db.refresh(dept)
+        return DepartmentResponse(
+            id=dept.id,
+            name=dept.name,
+            code=dept.code,
+            cost_center=dept.cost_center,
+            description=dept.description,
+            is_active=dept.is_active,
+            employee_count=0,
+        )
+
+    @staticmethod
+    def update_department(db: Session, department_id: int, dept_in: DepartmentUpdate) -> DepartmentResponse:
+        dept = DepartmentService.get_department(db, department_id)
+        update_data = dept_in.model_dump(exclude_unset=True)
+
+        if "code" in update_data and update_data["code"] is not None:
+            code_clean = update_data["code"].strip().upper()
+            if code_clean != dept.code:
+                existing = db.query(Department).filter(
+                    Department.code.ilike(code_clean),
+                    Department.id != dept.id,
+                ).first()
+                if existing:
+                    raise ConflictException(f"Department with code '{code_clean}' already exists", field="code")
+                dept.code = code_clean
+
+        if "name" in update_data and update_data["name"] is not None:
+            name_clean = update_data["name"].strip()
+            if name_clean != dept.name:
+                existing = db.query(Department).filter(
+                    Department.name.ilike(name_clean),
+                    Department.id != dept.id,
+                ).first()
+                if existing:
+                    raise ConflictException(f"Department with name '{name_clean}' already exists", field="name")
+                dept.name = name_clean
+
+        if "cost_center" in update_data:
+            dept.cost_center = update_data["cost_center"]
+        if "description" in update_data:
+            dept.description = update_data["description"]
+        if "is_active" in update_data and update_data["is_active"] is not None:
+            dept.is_active = update_data["is_active"]
+
+        db.commit()
+        db.refresh(dept)
+
+        active_count = (
+            db.query(func.count(Employee.id))
+            .filter(Employee.department_id == dept.id, Employee.is_active.is_(True))
+            .scalar()
+            or 0
+        )
+        return DepartmentResponse(
+            id=dept.id,
+            name=dept.name,
+            code=dept.code,
+            cost_center=dept.cost_center,
+            description=dept.description,
+            is_active=dept.is_active,
+            employee_count=active_count,
+        )
+
+    @staticmethod
+    def delete_department(db: Session, department_id: int) -> None:
+        dept = DepartmentService.get_department(db, department_id)
+
+        active_employees = (
+            db.query(Employee)
+            .filter(Employee.department_id == department_id, Employee.is_active.is_(True))
+            .count()
+        )
+        if active_employees > 0:
+            raise BadRequestException(
+                f"Cannot delete department with {active_employees} active employee(s). Reassign them first.",
+                field="department_id",
+            )
+
+        total_employees = (
+            db.query(Employee)
+            .filter(Employee.department_id == department_id)
+            .count()
+        )
+        if total_employees > 0:
+            dept.is_active = False
+            db.commit()
+        else:
+            db.delete(dept)
+            db.commit()
+
+    @staticmethod
     def get_department_employees(
         db: Session,
         department_id: int,
@@ -120,6 +233,7 @@ class DepartmentService:
             first_name=e.first_name,
             last_name=e.last_name,
             email=e.email,
+            phone_number=e.phone_number,
             department_id=e.department_id,
             department=e.department,
             manager_id=e.manager_id,
@@ -127,7 +241,11 @@ class DepartmentService:
             salary=e.salary,
             hire_date=e.hire_date,
             exit_date=e.exit_date,
+            employment_status=e.employment_status,
+            exit_type=e.exit_type,
+            exit_reason=e.exit_reason,
             work_location=e.work_location,
+            work_mode=e.work_mode,
             employment_type=e.employment_type,
             is_active=e.is_active,
             roles=roles_brief,

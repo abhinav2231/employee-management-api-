@@ -262,6 +262,11 @@ erDiagram
 8. **Security, Privacy & Field Access Policy (Phase 1 vs Task 5)**:
    - In Phase 1 (Tasks 1–4), `GET /api/v1/employees` exposes core profile details, `employment_status`, `exit_type`, `exit_reason`, and `work_mode`.
    - Sensitive personal and statutory compliance fields (`date_of_birth`, `pf_applicable`, `esi_applicable`) along with internal progression tables (`salary_revisions`, `employee_assignments`) are persisted in PostgreSQL but deliberately withheld from public employee read endpoints until Task 5 introduces Role-Based Access Control (RBAC).
+9. **Department Management & Safe Deletion**:
+   - Full department CRUD operations are supported (POST /api/v1/departments, GET /api/v1/departments, GET /api/v1/departments/{id}, PATCH /api/v1/departments/{id}, DELETE /api/v1/departments/{id}, and GET /api/v1/departments/{id}/employees).
+   - Deleting a department with active employees is strictly rejected with a 400 Bad Request to prevent orphaned personnel.
+   - Departments with historical records are safely soft-deleted (is_active = False) to satisfy Postgres ON DELETE RESTRICT constraints, while empty departments are purged.
+   - The ORM relationship uses passive_deletes=True to guarantee employee records are never accidentally cascade-deleted.
 
 ---
 
@@ -270,11 +275,14 @@ erDiagram
 ### Running Tests Locally
 
 ```bash
-# Run full automated test suite (46 tests)
+# Run full automated test suite (55 tests)
 pytest -v
 ```
 
 ### Proving End-to-End Operation (Docker)
+
+> [!CAUTION]
+> **Database Safety Notice:** Do not run docker compose exec api alembic downgrade base or make seed-reset-force against a production database or any database containing data you need to preserve. Downgrading to base drops all application tables, and reset-force truncates all records. Run migration rollback tests only against a dedicated, disposable development or test database.
 
 ```bash
 # 1. Start containers (auto-applies migrations and provisions test DB)
@@ -297,6 +305,7 @@ docker compose exec api python -m scripts.seed
 
 # 6. Run automated test suite inside Docker
 docker compose exec api pytest -v
+# Output: 55 passed in 134.81s (0:02:14)
 ```
 
 ---
@@ -304,6 +313,7 @@ docker compose exec api pytest -v
 ## 📊 Dataset Provenance & Clean Exports
 
 - **Source File:** [`data/01_LedgerForge_Python_Master_Dataset.xlsx`](data/01_LedgerForge_Python_Master_Dataset.xlsx)
+- **Scope Notice:** This pipeline implements the **Core HR & Payroll Engine** for Tasks 1–4 of the enterprise roadmap, ingesting the 7 core workforce sheets (Departments, Roles, Employees, Employee Assignments, Salary Revisions, Payroll Items, and Attendance). The remaining 21 operational sheets in the master workbook (e.g. Users, Leave Management, Invoices, Clients, Vendors, Expenses, Accounting) are reserved for subsequent tasks in the 20-task roadmap.
 - **Provenance & Benchmarking Origin:**
   - **Dataset Title:** *LedgerForge Master Dataset: Section 1 — Python: Core Payroll, Accounting & Employee Data Engine*.
   - **Simulated Entity:** Zenith Nova Technologies Pvt Ltd (mid-size Indian technology company, cut-off date September 30, 2026).

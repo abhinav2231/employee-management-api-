@@ -559,3 +559,39 @@ def test_create_exit_date_before_hire_date_rejected(client, setup_dept_and_role)
     r = client.post("/api/v1/employees", json=payload)
     assert r.status_code == 422
 
+
+def test_create_and_retrieve_employee_with_phone(client, setup_dept_and_role):
+    dept, role = setup_dept_and_role
+    payload = {
+        "first_name": "Rohan",
+        "last_name": "Sharma",
+        "email": "rohan.sharma@auraworkforce.io",
+        "phone_number": "+919876543210",
+        "department_id": dept.id,
+        "role_id": role.id,
+        "salary": 120000,
+        "hire_date": "2024-03-01",
+        "is_active": True,
+    }
+    r = client.post("/api/v1/employees", json=payload)
+    assert r.status_code == 201
+    d = r.json()
+    assert d["phone_number"] == "+919876543210"
+
+    emp_id = d["id"]
+    get_res = client.get(f"/api/v1/employees/{emp_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["phone_number"] == "+919876543210"
+
+
+def test_patch_employee_phone_number(client, setup_dept_and_role, db):
+    dept, _ = setup_dept_and_role
+    e = _emp(db, dept, "phone_patch@auraworkforce.io", phone_number="+918888888888")
+    r = client.patch(f"/api/v1/employees/{e.id}", json={"phone_number": "+919999999999"})
+    assert r.status_code == 200
+    assert r.json()["phone_number"] == "+919999999999"
+
+    get_res = client.get(f"/api/v1/employees/{e.id}")
+    assert get_res.json()["phone_number"] == "+919999999999"
+
+

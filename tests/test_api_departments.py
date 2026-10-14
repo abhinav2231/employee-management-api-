@@ -143,3 +143,96 @@ def test_get_department_employees_department_not_found(client: TestClient):
     data = response.json()
     assert data["error_code"] == "NOT_FOUND"
     assert "99999" in data["detail"]
+
+
+def test_create_department_success(client: TestClient):
+    payload = {
+        "name": "Quality Assurance",
+        "code": "QA",
+        "cost_center": "CC-700",
+        "description": "Software Testing & QA",
+        "is_active": True,
+    }
+    r = client.post("/api/v1/departments", json=payload)
+    assert r.status_code == 201
+    d = r.json()
+    assert d["code"] == "QA"
+    assert d["name"] == "Quality Assurance"
+    assert d["employee_count"] == 0
+
+
+def test_create_department_duplicate_code_conflict(client: TestClient, db: Session):
+    dept = Department(name="Security Operations", code="SEC")
+    db.add(dept)
+    db.commit()
+
+    r = client.post("/api/v1/departments", json={"name": "Cyber Security", "code": "SEC"})
+    assert r.status_code == 409
+
+
+def test_create_department_duplicate_name_conflict(client: TestClient, db: Session):
+    dept = Department(name="Customer Success", code="CS")
+    db.add(dept)
+    db.commit()
+
+    r = client.post("/api/v1/departments", json={"name": "Customer Success", "code": "CS2"})
+    assert r.status_code == 409
+
+
+def test_update_department_success(client: TestClient, db: Session):
+    dept = Department(name="Finance & Accounting", code="FA", cost_center="CC-800")
+    db.add(dept)
+    db.commit()
+
+    r = client.patch(f"/api/v1/departments/{dept.id}", json={
+        "name": "Finance",
+        "cost_center": "CC-801",
+    })
+    assert r.status_code == 200
+    d = r.json()
+    assert d["name"] == "Finance"
+    assert d["cost_center"] == "CC-801"
+
+
+def test_update_department_duplicate_code_conflict(client: TestClient, db: Session):
+    d1 = Department(name="Dept One", code="D1")
+    d2 = Department(name="Dept Two", code="D2")
+    db.add_all([d1, d2])
+    db.commit()
+
+    r = client.patch(f"/api/v1/departments/{d2.id}", json={"code": "D1"})
+    assert r.status_code == 409
+
+
+def test_delete_department_with_active_employees_fails(client: TestClient, db: Session):
+    dept = Department(name="Operations", code="OPS")
+    db.add(dept)
+    db.commit()
+
+    e = Employee(
+        first_name="Op",
+        last_name="Worker",
+        email="op@auraworkforce.io",
+        department_id=dept.id,
+        salary=Decimal("60000"),
+        hire_date=date(2023, 1, 1),
+        is_active=True,
+    )
+    db.add(e)
+    db.commit()
+
+    r = client.delete(f"/api/v1/departments/{dept.id}")
+    assert r.status_code == 400
+    # Employee must NOT be deleted
+    assert db.query(Employee).filter(Employee.id == e.id).first() is not None
+
+
+def test_delete_empty_department_success(client: TestClient, db: Session):
+    dept = Department(name="Temporary Dept", code="TEMP")
+    db.add(dept)
+    db.commit()
+
+    r = client.delete(f"/api/v1/departments/{dept.id}")
+    assert r.status_code == 204
+    assert client.get(f"/api/v1/departments/{dept.id}").status_code == 404
+

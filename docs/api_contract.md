@@ -20,8 +20,11 @@
 | **PATCH**| `/api/v1/employees/{id}` | `EmployeeUpdate` (JSON) | `200 OK` | Partial update of employee details (supports cycle prevention & manager clear) |
 | **DELETE**| `/api/v1/employees/{id}` | None | `204 No Content` | Soft delete employee (`is_active = false`), sets exit fields and reassigns direct reports |
 | **GET** | `/api/v1/employees/{id}/team` | None | `200 OK` | Direct reports reporting to manager |
-| **GET** | `/api/v1/departments` | None | `200 OK` | List all 11 departments and active headcounts |
+| **POST** | `/api/v1/departments` | `DepartmentCreate` (JSON) | `201 Created` | Create new department with unique code and name |
+| **GET** | `/api/v1/departments` | None | `200 OK` | List all departments with active headcounts |
 | **GET** | `/api/v1/departments/{id}` | None | `200 OK` | Retrieve single department by ID |
+| **PATCH**| `/api/v1/departments/{id}` | `DepartmentUpdate` (JSON) | `200 OK` | Update department details (code, name, cost center) |
+| **DELETE**| `/api/v1/departments/{id}`| None | `204 No Content` | Safely delete empty department or soft-deactivate (rejects if active employees exist) |
 | **GET** | `/api/v1/departments/{id}/employees` | Query params (`page`, `size`) | `200 OK` | Paginated employee roster for a department |
 
 ---

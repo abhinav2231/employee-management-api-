@@ -131,6 +131,8 @@ def test_csv_exports_valid(db: Session, tmp_path):
 
     sal_df = pd.read_csv(result["salaries_csv"])
     assert "employee_code" in sal_df.columns
+    assert "first_name" in sal_df.columns
+    assert "last_name" in sal_df.columns
     assert "net_salary" in sal_df.columns
     assert len(sal_df) == 3781
 

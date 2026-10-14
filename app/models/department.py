@@ -22,7 +22,7 @@ class Department(Base, TimestampMixin):
     employees: Mapped[list["Employee"]] = relationship(
         "Employee",
         back_populates="department",
-        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     def __repr__(self) -> str:

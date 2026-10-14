@@ -3,12 +3,24 @@ from fastapi import APIRouter, Depends, Query, Path, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.schemas.department import DepartmentResponse
+from app.schemas.department import DepartmentResponse, DepartmentCreate, DepartmentUpdate
 from app.schemas.employee import EmployeeResponse
 from app.schemas.common import PaginatedResponse
 from app.services.department_service import department_service
 
 router = APIRouter()
+
+
+@router.post(
+    "",
+    response_model=DepartmentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_department(
+    dept_in: DepartmentCreate,
+    db: Session = Depends(get_db),
+) -> DepartmentResponse:
+    return department_service.create_department(db=db, dept_in=dept_in)
 
 
 @router.get(
@@ -32,6 +44,30 @@ def get_department(
     db: Session = Depends(get_db),
 ) -> DepartmentResponse:
     return department_service.get_department_details(db=db, department_id=id)
+
+
+@router.patch(
+    "/{id}",
+    response_model=DepartmentResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_department(
+    dept_in: DepartmentUpdate,
+    id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> DepartmentResponse:
+    return department_service.update_department(db=db, department_id=id, dept_in=dept_in)
+
+
+@router.delete(
+    "/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_department(
+    id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> None:
+    department_service.delete_department(db=db, department_id=id)
 
 
 @router.get(

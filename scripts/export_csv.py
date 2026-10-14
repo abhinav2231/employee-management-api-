@@ -99,7 +99,8 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] 
         for row in sal_query:
             sal_rows.append({
                 "employee_code": row[0],
-                "employee_name": f"{row[1]} {row[2]}",
+                "first_name": row[1],
+                "last_name": row[2],
                 "pay_period": row[3],
                 "effective_date": row[4].isoformat() if row[4] else None,
                 "base_salary": float(row[5]),

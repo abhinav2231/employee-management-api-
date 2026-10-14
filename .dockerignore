@@ -13,3 +13,6 @@ htmlcov
 .gitignore
 *.md
 .dockerignore
+.env
+.env.*
+!.env.example

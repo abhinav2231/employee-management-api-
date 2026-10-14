@@ -7,7 +7,7 @@ name = "aura-workforce-os"
 version = "0.1.0"
 description = "Aura Workforce OS: Core Payroll, Accounting & Employee Data Engine"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.110.0,<1.0.0",
     "uvicorn[standard]>=0.28.0,<1.0.0",
