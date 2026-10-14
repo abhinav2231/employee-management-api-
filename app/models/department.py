@@ -10,9 +10,6 @@ if TYPE_CHECKING:
 
 
 class Department(Base, TimestampMixin):
-    """
-    Department organizational entity (e.g. Engineering, Sales, Human Resources).
-    """
     __tablename__ = "departments"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -22,7 +19,6 @@ class Department(Base, TimestampMixin):
     description: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # Relationships
     employees: Mapped[list["Employee"]] = relationship(
         "Employee",
         back_populates="department",

@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field, ConfigDict
 
 
 class RoleBrief(BaseModel):
-    """Minimal role projection."""
     id: int
     code: Optional[str] = None
     title: str
@@ -14,10 +13,10 @@ class RoleBrief(BaseModel):
 
 
 class RoleBase(BaseModel):
-    code: Optional[str] = Field(None, max_length=10, examples=["R001"])
-    title: str = Field(..., min_length=1, max_length=100, examples=["Software Engineer"])
+    code: Optional[str] = Field(None, max_length=10)
+    title: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=255)
-    level: Optional[str] = Field(None, max_length=50, examples=["L2 Executive"])
+    level: Optional[str] = Field(None, max_length=50)
     is_active: bool = Field(default=True)
 
 

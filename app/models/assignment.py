@@ -13,10 +13,6 @@ if TYPE_CHECKING:
 
 
 class EmployeeAssignment(Base, TimestampMixin):
-    """
-    Career progression and assignment history for workforce members
-    tracking department, role, job level, and manager changes over time.
-    """
     __tablename__ = "employee_assignments"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -46,7 +42,6 @@ class EmployeeAssignment(Base, TimestampMixin):
     )
     change_reason: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
-    # Relationships
     employee: Mapped["Employee"] = relationship("Employee", foreign_keys=[employee_id])
     department: Mapped[Optional["Department"]] = relationship("Department")
     role: Mapped[Optional["Role"]] = relationship("Role")

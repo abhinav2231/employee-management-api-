@@ -1,12 +1,3 @@
-"""
-CSV Export utility for Aura Workforce OS.
-Exports active records for employees, salaries, and attendance directly from PostgreSQL
-into clean, portable CSV files in data/exports/.
-
-Usage:
-    python -m scripts.export_csv
-"""
-
 import logging
 import os
 import sys
@@ -15,15 +6,12 @@ from sqlalchemy.orm import Session
 
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
-# Ensure project root is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.core.database import SessionLocal, engine
 
 engine.echo = False
 from app.models.employee import Employee
-from app.models.department import Department
-from app.models.role import Role, EmployeeRole
 from app.models.salary import SalaryRecord
 from app.models.attendance import Attendance
 
@@ -35,16 +23,10 @@ EXPORTS_DIR = os.path.join(
 
 
 def export_database_to_csv(output_dir: str = EXPORTS_DIR) -> dict:
-    """
-    Queries database tables and writes CSV files for employees, salaries, and attendance.
-    """
     os.makedirs(output_dir, exist_ok=True)
     db: Session = SessionLocal()
 
     try:
-        print(f"[INFO] Exporting workforce database tables to: {output_dir}")
-
-        # 1. Employees Export
         employees = db.query(Employee).order_by(Employee.id).all()
         emp_rows = []
         for e in employees:
@@ -71,10 +53,8 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR) -> dict:
 
         emp_df = pd.DataFrame(emp_rows)
         emp_path = os.path.join(output_dir, "employees.csv")
-        emp_df.to_csv(emp_path, index=False, encoding="utf-8")
-        print(f"  + Exported {len(emp_df)} employees to {emp_path}")
+        emp_df.to_csv(emp_path, index=False, encoding="utf-8", lineterminator="\n")
 
-        # 2. Salaries Export
         salaries = db.query(SalaryRecord).order_by(SalaryRecord.employee_id, SalaryRecord.pay_period).all()
         sal_rows = []
         for s in salaries:
@@ -96,10 +76,8 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR) -> dict:
 
         sal_df = pd.DataFrame(sal_rows)
         sal_path = os.path.join(output_dir, "salaries.csv")
-        sal_df.to_csv(sal_path, index=False, encoding="utf-8")
-        print(f"  + Exported {len(sal_df)} salary records to {sal_path}")
+        sal_df.to_csv(sal_path, index=False, encoding="utf-8", lineterminator="\n")
 
-        # 3. Attendance Export
         attendance = db.query(Attendance).order_by(Attendance.employee_id, Attendance.date).all()
         att_rows = []
         for a in attendance:
@@ -117,8 +95,7 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR) -> dict:
 
         att_df = pd.DataFrame(att_rows)
         att_path = os.path.join(output_dir, "attendance.csv")
-        att_df.to_csv(att_path, index=False, encoding="utf-8")
-        print(f"  + Exported {len(att_df)} attendance logs to {att_path}")
+        att_df.to_csv(att_path, index=False, encoding="utf-8", lineterminator="\n")
 
         return {
             "employees_csv": emp_path,

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Optional
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -7,16 +7,12 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 class ErrorResponse(BaseModel):
-    """
-    Standard consistent error response envelope across all endpoints.
-    """
     detail: str
     error_code: str
     field: Optional[str] = None
 
 
 class AppException(Exception):
-    """Base application exception."""
     def __init__(
         self,
         detail: str,
@@ -62,10 +58,6 @@ class BadRequestException(AppException):
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    """
-    Register consistent error handlers on the FastAPI application instance.
-    """
-
     @app.exception_handler(AppException)
     async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
         return JSONResponse(

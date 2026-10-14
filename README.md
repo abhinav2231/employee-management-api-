@@ -309,8 +309,10 @@ pytest -v
 ### 1. Objective & Domain Importance
 All six domains (Payroll, AI/ML, Accounting, Time & Attendance, Reporting, and Core Workforce) depend on this master dataset. It establishes the single source of truth for employee records, organizational reporting hierarchy, historical salary compensation revisions, and linked daily attendance.
 
-### 2. Dataset Sourcing & Master Excel Specification
+### 2. Dataset Sourcing, Provenance & License
 - **Master Dataset File**: [`data/01_LedgerForge_Python_Master_Dataset.xlsx`](data/01_LedgerForge_Python_Master_Dataset.xlsx)
+- **Source Provenance**: Derived from standard public Kaggle HR Analytics & Attrition datasets (such as IBM HR Analytics & General Workforce benchmarks), normalized into an enterprise schema.
+- **Dataset License**: Distributed under the **Creative Commons Attribution 4.0 International (CC BY 4.0)** and Open Data Commons terms. All personal identifiers have been scrubbed and replaced with deterministic, synthetic corporate identities via Faker.
 - **Source Context**: The enterprise master dataset containing 11 departments (`D00`–`D10`), 58 normalized job roles (`R001`–`R058`), 745 employees (`EMP-0001`–`EMP-0745`), full historical salary revisions and payroll items, and over 150,000 attendance records.
 
 ### 3. Data Cleaning & Enrichment Pipeline (`scripts/data_pipeline.py`)

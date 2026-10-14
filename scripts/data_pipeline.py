@@ -1,21 +1,13 @@
-"""
-Master Dataset Cleaning and Loading Pipeline for Aura Workforce OS.
-Processes the provided master dataset (01_LedgerForge_Python_Master_Dataset.xlsx),
-cleans it using pandas, enriches it with Faker (deterministic seed 42) for corporate
-contact data and Aura Workforce OS rebranding, and extracts linked employees, salaries, and attendance.
-"""
-
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from decimal import Decimal
 import os
 import random
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
 from faker import Faker
 
-# Fixed seeds for repeatable seeding
 RANDOM_SEED = 42
 Faker.seed(RANDOM_SEED)
 random.seed(RANDOM_SEED)
@@ -37,7 +29,6 @@ EXPORTS_DIR = os.path.join(
 
 
 def parse_time_str(val: Any) -> Optional[time]:
-    """Parse string or time object into datetime.time safely."""
     if val is None or pd.isna(val):
         return None
     if isinstance(val, time):
@@ -55,7 +46,6 @@ def parse_time_str(val: Any) -> Optional[time]:
 
 
 def parse_date_val(val: Any) -> Optional[date]:
-    """Parse datetime/timestamp into datetime.date safely."""
     if val is None or pd.isna(val):
         return None
     if isinstance(val, datetime):
@@ -68,13 +58,7 @@ def parse_date_val(val: Any) -> Optional[date]:
         return None
 
 
-def load_and_clean_master_dataset(
-    recent_attendance_months: int = 4,
-) -> Dict[str, Any]:
-    """
-    Reads the master Excel dataset using pandas, cleans and normalizes fields,
-    enriches contact data with Faker, and structures linked entities.
-    """
+def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str, Any]:
     if not os.path.exists(MASTER_DATASET_PATH):
         raise FileNotFoundError(f"Master dataset file not found at: {MASTER_DATASET_PATH}")
 
@@ -84,7 +68,6 @@ def load_and_clean_master_dataset(
 
     xl = pd.ExcelFile(MASTER_DATASET_PATH)
 
-    # 1. Departments
     df_depts = xl.parse("departments")
     departments = []
     for _, row in df_depts.iterrows():
@@ -96,7 +79,6 @@ def load_and_clean_master_dataset(
             "is_active": True,
         })
 
-    # 2. Roles
     df_roles = xl.parse("roles")
     roles = []
     for _, row in df_roles.iterrows():
@@ -108,7 +90,6 @@ def load_and_clean_master_dataset(
             "is_active": True,
         })
 
-    # 3. Latest Salaries from salary_revisions
     df_sal_rev = xl.parse("salary_revisions")
     df_sal_sorted = df_sal_rev.sort_values("effective_from")
     latest_salary_map: Dict[str, Decimal] = {}
@@ -118,7 +99,6 @@ def load_and_clean_master_dataset(
         if pd.notna(val) and float(val) > 0:
             latest_salary_map[emp_id] = Decimal(str(int(val)))
 
-    # 4. Employees
     df_emp = xl.parse("employees")
     employees = []
     used_emails = set()
@@ -128,7 +108,6 @@ def load_and_clean_master_dataset(
         first_name = str(row["first_name"]).strip()
         last_name = str(row["last_name"]).strip()
 
-        # Rebrand email to Aura Workforce OS domain cleanly
         base_email = f"{first_name.lower()}.{last_name.lower()}@auraworkforce.io"
         if base_email in used_emails:
             clean_code = emp_code.lower().replace("-", "")
@@ -137,17 +116,13 @@ def load_and_clean_master_dataset(
             email = base_email
         used_emails.add(email)
 
-        # Deterministic phone number from Faker
         phone_number = fake.phone_number()
-
         hire_date = parse_date_val(row.get("hire_date"))
         exit_date = parse_date_val(row.get("exit_date"))
         status_str = str(row.get("employment_status", "Active")).strip()
         is_active = (status_str.lower() == "active")
 
-        # Annual compensation
         salary = latest_salary_map.get(emp_code, Decimal("500000.00"))
-
         dept_code = str(row.get("department_id", "D01")).strip()
         role_code = str(row.get("role_id", "R002")).strip()
         manager_code = str(row["manager_id"]).strip() if pd.notna(row.get("manager_id")) else None
@@ -169,10 +144,8 @@ def load_and_clean_master_dataset(
             "employment_type": str(row.get("employment_type", "Permanent")).strip(),
         })
 
-    # 5. Salaries from payroll_items
     df_pi = xl.parse("payroll_items")
     salaries = []
-    # If recent months requested, take recent pay runs (e.g. from 2026-01 onwards)
     min_pay_date = pd.to_datetime("2026-01-01")
     df_pi_filtered = df_pi[df_pi["period_start"] >= min_pay_date]
     if len(df_pi_filtered) == 0:
@@ -208,7 +181,6 @@ def load_and_clean_master_dataset(
             "payment_status": "PAID",
         })
 
-    # 6. Attendance (Filter recent months, e.g. June to September 2026 = ~34,000 logs)
     df_att = xl.parse("attendance")
     min_att_date = pd.to_datetime("2026-06-01")
     df_att_recent = df_att[df_att["attendance_date"] >= min_att_date]
@@ -221,7 +193,6 @@ def load_and_clean_master_dataset(
         att_date = pd.to_datetime(row["attendance_date"]).date()
         raw_status = str(row.get("status", "PRESENT")).strip().upper()
 
-        # Map to standard status categories
         if "PRESENT" in raw_status:
             status = "PRESENT"
         elif "WFH" in raw_status or "REMOTE" in raw_status:
@@ -266,25 +237,19 @@ def load_and_clean_master_dataset(
 
 
 def export_dataset_to_csv(data: Dict[str, Any], output_dir: str = EXPORTS_DIR) -> Dict[str, str]:
-    """
-    Exports employees, salaries, and attendance records into clean CSV files in data/exports/.
-    """
     os.makedirs(output_dir, exist_ok=True)
 
-    # 1. Employees CSV
     emp_df = pd.DataFrame(data["employees"])
     emp_path = os.path.join(output_dir, "employees.csv")
-    emp_df.to_csv(emp_path, index=False, encoding="utf-8")
+    emp_df.to_csv(emp_path, index=False, encoding="utf-8", lineterminator="\n")
 
-    # 2. Salaries CSV
     sal_df = pd.DataFrame(data["salaries"])
     sal_path = os.path.join(output_dir, "salaries.csv")
-    sal_df.to_csv(sal_path, index=False, encoding="utf-8")
+    sal_df.to_csv(sal_path, index=False, encoding="utf-8", lineterminator="\n")
 
-    # 3. Attendance CSV
     att_df = pd.DataFrame(data["attendance"])
     att_path = os.path.join(output_dir, "attendance.csv")
-    att_df.to_csv(att_path, index=False, encoding="utf-8")
+    att_df.to_csv(att_path, index=False, encoding="utf-8", lineterminator="\n")
 
     return {
         "employees_csv": emp_path,

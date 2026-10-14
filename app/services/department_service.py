@@ -1,6 +1,5 @@
 import math
-from typing import List, Optional
-from sqlalchemy import func
+from typing import List
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundException
@@ -13,16 +12,8 @@ from app.schemas.role import RoleBrief
 
 
 class DepartmentService:
-    """
-    Business logic layer for department operations.
-    Keeps route handlers lean and focused purely on HTTP contracts.
-    """
-
     @staticmethod
     def list_departments(db: Session) -> List[DepartmentResponse]:
-        """
-        List all departments with their current active headcount.
-        """
         departments = db.query(Department).order_by(Department.name.asc()).all()
         results: List[DepartmentResponse] = []
 
@@ -33,6 +24,7 @@ class DepartmentService:
                     id=d.id,
                     name=d.name,
                     code=d.code,
+                    cost_center=d.cost_center,
                     description=d.description,
                     is_active=d.is_active,
                     employee_count=active_count,
@@ -42,9 +34,6 @@ class DepartmentService:
 
     @staticmethod
     def get_department(db: Session, department_id: int) -> Department:
-        """
-        Retrieve a single department by ID or raise a NotFoundException.
-        """
         dept = db.query(Department).filter(Department.id == department_id).first()
         if not dept:
             raise NotFoundException(f"Department with ID {department_id} not found", field="department_id")
@@ -52,15 +41,13 @@ class DepartmentService:
 
     @staticmethod
     def get_department_details(db: Session, department_id: int) -> DepartmentResponse:
-        """
-        Retrieve a single department by ID with calculated active headcount.
-        """
         dept = DepartmentService.get_department(db, department_id)
         active_count = sum(1 for e in dept.employees if e.is_active)
         return DepartmentResponse(
             id=dept.id,
             name=dept.name,
             code=dept.code,
+            cost_center=dept.cost_center,
             description=dept.description,
             is_active=dept.is_active,
             employee_count=active_count,
@@ -73,10 +60,6 @@ class DepartmentService:
         page: int = 1,
         size: int = 20,
     ) -> PaginatedResponse[EmployeeResponse]:
-        """
-        Retrieve paginated list of active employees belonging to a specific department.
-        """
-        # Ensure department exists first
         DepartmentService.get_department(db, department_id)
 
         query = db.query(Employee).filter(
@@ -104,6 +87,7 @@ class DepartmentService:
         roles_brief = [
             RoleBrief(
                 id=er.role.id,
+                code=er.role.code,
                 title=er.role.title,
                 level=er.role.level,
                 is_primary=er.is_primary,
@@ -112,6 +96,7 @@ class DepartmentService:
         ]
         return EmployeeResponse(
             id=e.id,
+            employee_code=e.employee_code,
             first_name=e.first_name,
             last_name=e.last_name,
             email=e.email,
@@ -121,6 +106,9 @@ class DepartmentService:
             manager=e.manager,
             salary=e.salary,
             hire_date=e.hire_date,
+            exit_date=e.exit_date,
+            work_location=e.work_location,
+            employment_type=e.employment_type,
             is_active=e.is_active,
             roles=roles_brief,
             created_at=e.created_at,

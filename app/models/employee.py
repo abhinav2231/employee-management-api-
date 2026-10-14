@@ -23,10 +23,6 @@ if TYPE_CHECKING:
 
 
 class Employee(Base, TimestampMixin):
-    """
-    Employee entity representing workforce records, compensation,
-    department allocation, and manager hierarchy reporting.
-    """
     __tablename__ = "employees"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -37,38 +33,32 @@ class Employee(Base, TimestampMixin):
     phone_number: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     work_location: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     employment_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    
-    # Department allocation
+
     department_id: Mapped[int] = mapped_column(
         ForeignKey("departments.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
 
-    # Manager self-referential reporting hierarchy
     manager_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("employees.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
 
-    # Compensation & Employment info
     salary: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     hire_date: Mapped[date] = mapped_column(Date, nullable=False)
     exit_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
 
-    # Table arguments: constraints and performance search indexes
     __table_args__ = (
         CheckConstraint("salary > 0", name="ck_employees_salary_positive"),
         Index("ix_employees_name", "last_name", "first_name"),
         Index("ix_employees_dept_active", "department_id", "is_active"),
     )
 
-    # Relationships
     department: Mapped["Department"] = relationship("Department", back_populates="employees")
     
-    # Self-referential manager relationship
     manager: Mapped[Optional["Employee"]] = relationship(
         "Employee",
         remote_side="[Employee.id]",
@@ -79,21 +69,18 @@ class Employee(Base, TimestampMixin):
         back_populates="manager",
     )
 
-    # Multi-role assignments
     employee_roles: Mapped[list["EmployeeRole"]] = relationship(
         "EmployeeRole",
         back_populates="employee",
         cascade="all, delete-orphan",
     )
 
-    # Linked attendance tracking
     attendances: Mapped[list["Attendance"]] = relationship(
         "Attendance",
         back_populates="employee",
         cascade="all, delete-orphan",
     )
 
-    # Linked compensation & salary history
     salary_records: Mapped[list["SalaryRecord"]] = relationship(
         "SalaryRecord",
         back_populates="employee",

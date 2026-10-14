@@ -12,9 +12,6 @@ if TYPE_CHECKING:
 
 
 class Role(Base, TimestampMixin):
-    """
-    Role or Job Designation entity (e.g. Software Engineer, Engineering Manager, HR Specialist).
-    """
     __tablename__ = "roles"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -31,7 +28,6 @@ class Role(Base, TimestampMixin):
 
     department: Mapped[Optional["Department"]] = relationship("Department")
 
-    # Relationships
     employee_roles: Mapped[list["EmployeeRole"]] = relationship(
         "EmployeeRole",
         back_populates="role",
@@ -43,10 +39,6 @@ class Role(Base, TimestampMixin):
 
 
 class EmployeeRole(Base):
-    """
-    Junction association table enabling employees to hold multiple roles
-    with a primary role flag for payroll/compensation bands.
-    """
     __tablename__ = "employee_roles"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -67,12 +59,10 @@ class EmployeeRole(Base):
         nullable=False,
     )
 
-    # Composite uniqueness constraint
     __table_args__ = (
         UniqueConstraint("employee_id", "role_id", name="uq_employee_role"),
     )
 
-    # Relationships
     employee: Mapped["Employee"] = relationship("Employee", back_populates="employee_roles")
     role: Mapped["Role"] = relationship("Role", back_populates="employee_roles")
 

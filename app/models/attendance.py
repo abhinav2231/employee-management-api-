@@ -20,10 +20,6 @@ if TYPE_CHECKING:
 
 
 class Attendance(Base, TimestampMixin):
-    """
-    Daily attendance record for workforce management and payroll tracking,
-    linked directly to an Employee.
-    """
     __tablename__ = "attendance"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -33,7 +29,7 @@ class Attendance(Base, TimestampMixin):
         index=True,
     )
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False)  # PRESENT, REMOTE, ON_LEAVE, HALF_DAY, ABSENT
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
     check_in: Mapped[Optional[time]] = mapped_column(Time, nullable=True)
     check_out: Mapped[Optional[time]] = mapped_column(Time, nullable=True)
     hours_worked: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 2), nullable=True)

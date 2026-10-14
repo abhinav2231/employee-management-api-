@@ -1,14 +1,13 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
+from typing import Optional, List, Any
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ConfigDict
 
 from app.schemas.department import DepartmentBrief
 from app.schemas.role import RoleBrief
 
 
 class EmployeeBrief(BaseModel):
-    """Minimal employee projection for manager or team listings."""
     id: int
     employee_code: Optional[str] = None
     first_name: str
@@ -21,18 +20,26 @@ class EmployeeBrief(BaseModel):
 
 
 class EmployeeBase(BaseModel):
-    """Base fields for employee validation."""
-    employee_code: Optional[str] = Field(None, max_length=20, examples=["EMP-0001"])
-    first_name: str = Field(..., min_length=1, max_length=50, examples=["Jane"])
-    last_name: str = Field(..., min_length=1, max_length=50, examples=["Doe"])
-    email: EmailStr = Field(..., examples=["jane.doe@example.com"])
-    department_id: int = Field(..., gt=0, examples=[1])
-    role_id: Optional[int] = Field(None, gt=0, description="Optional primary job role ID", examples=[1])
-    manager_id: Optional[int] = Field(None, gt=0, description="Optional manager ID", examples=[2])
-    salary: Decimal = Field(..., gt=0, examples=[950000.00])
-    hire_date: date = Field(..., examples=["2023-01-15"])
-    work_location: Optional[str] = Field(None, max_length=50, examples=["Pune"])
-    employment_type: Optional[str] = Field(None, max_length=50, examples=["Permanent"])
+    employee_code: Optional[str] = Field(None, max_length=20)
+    first_name: str = Field(..., min_length=1, max_length=50)
+    last_name: str = Field(..., min_length=1, max_length=50)
+    email: EmailStr
+    department_id: Any
+    role_id: Optional[Any] = None
+    primary_role_id: Optional[Any] = None
+    manager_id: Optional[Any] = None
+    salary: Decimal = Field(..., gt=0)
+    hire_date: date
+    work_location: Optional[str] = Field(None, max_length=50)
+    employment_type: Optional[str] = Field(None, max_length=50)
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_role_alias(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "primary_role_id" in data and ("role_id" not in data or data["role_id"] is None):
+                data["role_id"] = data["primary_role_id"]
+        return data
 
     @field_validator("first_name", "last_name")
     @classmethod
@@ -51,12 +58,10 @@ class EmployeeBase(BaseModel):
 
 
 class EmployeeCreate(EmployeeBase):
-    """Schema for creating a new employee."""
-    is_active: bool = Field(default=True, examples=[True])
+    is_active: bool = Field(default=True)
 
 
 class EmployeeUpdate(BaseModel):
-    """Schema for patching / updating employee fields partially."""
     first_name: Optional[str] = Field(None, min_length=1, max_length=50)
     last_name: Optional[str] = Field(None, min_length=1, max_length=50)
     email: Optional[EmailStr] = None
@@ -88,7 +93,6 @@ class EmployeeUpdate(BaseModel):
 
 
 class EmployeeResponse(BaseModel):
-    """Full employee response schema with relationships."""
     id: int
     employee_code: Optional[str] = None
     first_name: str
@@ -112,7 +116,6 @@ class EmployeeResponse(BaseModel):
 
 
 class TeamResponse(BaseModel):
-    """Manager profile and direct reports list."""
     manager: EmployeeBrief
     direct_reports: List[EmployeeBrief]
     total_reports: int = Field(..., ge=0)
