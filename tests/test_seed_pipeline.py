@@ -141,3 +141,13 @@ def test_csv_exports_valid(db: Session, tmp_path):
     sample_notes = att_df["notes"].dropna().tolist()
     for n in sample_notes[:100]:
         assert "NAN" not in str(n)
+
+    rev_df = pd.read_csv(result["salary_revisions_csv"])
+    assert "revision_code" in rev_df.columns
+    assert "employee_code" in rev_df.columns
+    assert len(rev_df) == 2459
+
+    asgn_df = pd.read_csv(result["assignments_csv"])
+    assert "assignment_code" in asgn_df.columns
+    assert "employee_code" in asgn_df.columns
+    assert len(asgn_df) == 1606

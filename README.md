@@ -274,11 +274,6 @@ erDiagram
 pytest -v
 ```
 
-All 46 tests execute against the auto-provisioned isolated test database:
-```text
-======================= 46 passed in isolated test db =======================
-```
-
 ### Proving End-to-End Operation (Docker)
 
 ```bash

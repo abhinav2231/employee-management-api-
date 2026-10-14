@@ -463,7 +463,8 @@ def main():
     print(f"  Salaries:         {summary['salaries_total']}")
     print(f"  Attendance:       {summary['attendance_total']}")
     if summary.get("exports"):
-        print(f"  Exports generated: {len(summary['exports'])} files in {EXPORTS_DIR}")
+        csv_count = sum(1 for k in summary["exports"] if k.endswith("_csv"))
+        print(f"  Exports generated: {csv_count} files in {EXPORTS_DIR}")
 
 
 if __name__ == "__main__":

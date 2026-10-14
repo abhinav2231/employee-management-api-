@@ -1,4 +1,4 @@
-.PHONY: migrate seed seed-reset export test run
+.PHONY: migrate seed seed-reset seed-reset-force export test run
 
 migrate:
 	alembic upgrade head
