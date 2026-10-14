@@ -9,6 +9,9 @@ seed: migrate
 seed-reset: migrate
 	python -m scripts.seed --reset
 
+seed-reset-force: migrate
+	python -m scripts.seed --reset --force
+
 export:
 	python -m scripts.export_csv
 

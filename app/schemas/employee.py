@@ -74,6 +74,8 @@ class EmployeeCreate(EmployeeBase):
             raise ValueError("employment_status and is_active contradict each other")
         if self.is_active and any(v is not None for v in (self.exit_type, self.exit_reason, self.exit_date)):
             raise ValueError("exit fields cannot be set on an active employee")
+        if self.exit_date is not None and self.hire_date is not None and self.exit_date < self.hire_date:
+            raise ValueError("exit_date cannot be before hire_date")
         return self
 
 

@@ -119,6 +119,8 @@ def test_csv_exports_valid(db: Session, tmp_path):
     assert os.path.exists(result["employees_csv"])
     assert os.path.exists(result["salaries_csv"])
     assert os.path.exists(result["attendance_csv"])
+    assert os.path.exists(result["salary_revisions_csv"])
+    assert os.path.exists(result["assignments_csv"])
 
     emp_df = pd.read_csv(result["employees_csv"])
     assert "employee_code" in emp_df.columns

@@ -453,7 +453,17 @@ def main():
         else:
             sys.exit("[ERROR] Running --reset in a non-interactive environment (e.g. CI, piped stdin, Docker) requires the explicit --force flag.")
 
-    seed_database(reset=args.reset)
+    summary = seed_database(reset=args.reset)
+    print("Master dataset seeded successfully:")
+    print(f"  Departments:      {summary['departments_total']}")
+    print(f"  Roles:            {summary['roles_total']}")
+    print(f"  Employees:        {summary['employees_total']} (inserted: {summary['employees_inserted']}, updated: {summary['employees_updated']})")
+    print(f"  Assignments:      {summary['assignments_total']}")
+    print(f"  Salary Revisions: {summary['salary_revisions_total']}")
+    print(f"  Salaries:         {summary['salaries_total']}")
+    print(f"  Attendance:       {summary['attendance_total']}")
+    if summary.get("exports"):
+        print(f"  Exports generated: {len(summary['exports'])} files in {EXPORTS_DIR}")
 
 
 if __name__ == "__main__":

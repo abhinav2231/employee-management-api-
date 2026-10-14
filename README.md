@@ -19,7 +19,7 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-> **Note on `.env`:** The `docker-compose.yml` configures `required: false` for `.env`. All necessary configuration defaults are pre-baked, allowing a fresh clone to start up immediately without requiring manual `.env` file creation.
+> **Note on `.env`:** The `docker-compose.yml` configures `required: false` for `.env` (requires Docker Compose v2.24+; for older Compose versions, simply run `cp .env.example .env`). All necessary configuration defaults are pre-baked, allowing a fresh clone to start up immediately without requiring manual `.env` file creation.
 
 Both the PostgreSQL database (`db`) and FastAPI application (`api`) will start up:
 - Database migrations (`alembic upgrade head`) execute automatically via `entrypoint.sh` before the API accepts traffic.
@@ -270,13 +270,13 @@ erDiagram
 ### Running Tests Locally
 
 ```bash
-# Run full automated test suite (41 tests)
+# Run full automated test suite (46 tests)
 pytest -v
 ```
 
-All 41 tests execute against the auto-provisioned isolated test database:
+All 46 tests execute against the auto-provisioned isolated test database:
 ```text
-======================= 41 passed in ~25s =======================
+======================= 46 passed in isolated test db =======================
 ```
 
 ### Proving End-to-End Operation (Docker)
@@ -326,6 +326,8 @@ docker compose exec api pytest -v
   - [`employees.csv`](data/exports/employees.csv): 745 employee records with `employee_code`, `first_name`, `last_name`, `email`, `phone_number`, `department_code`, `department_name`, `role_title`, `manager_code`, `manager_name`, `salary`, `hire_date`, `exit_date`, `work_location`, `work_mode`, `employment_type`, `employment_status`, `exit_type`, `exit_reason`, and `is_active`.
   - [`salaries.csv`](data/exports/salaries.csv): 3,781 monthly payslip records with `employee_code`, `first_name`, `last_name`, `pay_period`, `effective_date`, `base_salary`, `allowances`, `bonuses`, `deductions`, `net_salary`, `currency`, and `payment_status`.
   - [`attendance.csv`](data/exports/attendance.csv): 36,751 attendance records with `employee_code`, `date`, `status`, `check_in`, `check_out`, `hours_worked`, and `notes`.
+  - [`salary_revisions.csv`](data/exports/salary_revisions.csv): 2,459 compensation adjustments with `revision_code`, `employee_code`, `effective_from`, `revision_reason`, `previous_annual_fixed`, `new_annual_fixed`, `pct_change`, `role_id_after`, and `approved_by`.
+  - [`assignments.csv`](data/exports/assignments.csv): 1,606 career progression records with `assignment_code`, `employee_code`, `effective_from`, `effective_to`, `department_code`, `role_title`, `job_level`, and `change_reason`.
 
 ---
 

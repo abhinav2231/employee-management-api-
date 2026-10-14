@@ -13,9 +13,12 @@ from app.core.database import SessionLocal, engine
 
 engine.echo = False
 from app.models.employee import Employee
-from app.models.role import EmployeeRole
+from app.models.role import EmployeeRole, Role
+from app.models.department import Department
 from app.models.salary import SalaryRecord
 from app.models.attendance import Attendance
+from app.models.salary_revision import SalaryRevision
+from app.models.assignment import EmployeeAssignment
 
 EXPORTS_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -142,13 +145,83 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] 
         att_path = os.path.join(output_dir, "attendance.csv")
         att_df.to_csv(att_path, index=False, encoding="utf-8", lineterminator="\n")
 
+        rev_query = (
+            db.query(
+                SalaryRevision.revision_code,
+                Employee.employee_code,
+                SalaryRevision.effective_from,
+                SalaryRevision.revision_reason,
+                SalaryRevision.previous_annual_fixed,
+                SalaryRevision.new_annual_fixed,
+                SalaryRevision.pct_change,
+                SalaryRevision.role_id_after,
+                SalaryRevision.approved_by,
+            )
+            .join(Employee, SalaryRevision.employee_id == Employee.id)
+            .order_by(SalaryRevision.id.asc())
+            .all()
+        )
+        rev_rows = []
+        for r in rev_query:
+            rev_rows.append({
+                "revision_code": r[0],
+                "employee_code": r[1],
+                "effective_from": r[2].isoformat() if r[2] else None,
+                "revision_reason": r[3],
+                "previous_annual_fixed": float(r[4]) if r[4] is not None else None,
+                "new_annual_fixed": float(r[5]) if r[5] is not None else None,
+                "pct_change": float(r[6]) if r[6] is not None else None,
+                "role_id_after": r[7],
+                "approved_by": r[8],
+            })
+        rev_df = pd.DataFrame(rev_rows)
+        rev_path = os.path.join(output_dir, "salary_revisions.csv")
+        rev_df.to_csv(rev_path, index=False, encoding="utf-8", lineterminator="\n")
+
+        asgn_query = (
+            db.query(
+                EmployeeAssignment.assignment_code,
+                Employee.employee_code,
+                EmployeeAssignment.effective_from,
+                EmployeeAssignment.effective_to,
+                Department.code.label("department_code"),
+                Role.title.label("role_title"),
+                EmployeeAssignment.job_level,
+                EmployeeAssignment.change_reason,
+            )
+            .join(Employee, EmployeeAssignment.employee_id == Employee.id)
+            .outerjoin(Department, EmployeeAssignment.department_id == Department.id)
+            .outerjoin(Role, EmployeeAssignment.role_id == Role.id)
+            .order_by(EmployeeAssignment.id.asc())
+            .all()
+        )
+        asgn_rows = []
+        for a in asgn_query:
+            asgn_rows.append({
+                "assignment_code": a[0],
+                "employee_code": a[1],
+                "effective_from": a[2].isoformat() if a[2] else None,
+                "effective_to": a[3].isoformat() if a[3] else None,
+                "department_code": a[4],
+                "role_title": a[5],
+                "job_level": a[6],
+                "change_reason": a[7],
+            })
+        asgn_df = pd.DataFrame(asgn_rows)
+        asgn_path = os.path.join(output_dir, "assignments.csv")
+        asgn_df.to_csv(asgn_path, index=False, encoding="utf-8", lineterminator="\n")
+
         return {
             "employees_csv": emp_path,
             "salaries_csv": sal_path,
             "attendance_csv": att_path,
+            "salary_revisions_csv": rev_path,
+            "assignments_csv": asgn_path,
             "employees_count": len(emp_df),
             "salaries_count": len(sal_df),
             "attendance_count": len(att_df),
+            "salary_revisions_count": len(rev_df),
+            "assignments_count": len(asgn_df),
         }
     finally:
         if close_session:

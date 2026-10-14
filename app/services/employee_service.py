@@ -144,6 +144,9 @@ class EmployeeService:
         else:
             final_code = EmployeeService._get_next_employee_code(db)
 
+        if employee_in.exit_date and employee_in.hire_date and employee_in.exit_date < employee_in.hire_date:
+            raise BadRequestException("exit_date cannot be before hire_date", field="exit_date")
+
         employee = Employee(
             employee_code=final_code,
             first_name=employee_in.first_name,
