@@ -1,6 +1,8 @@
 # Aura Workforce OS — Core Payroll, Accounting & Employee Data Engine
 ### Enterprise Workforce Management & Employee Data Engine (Python)
 
+**GitHub Repository:** https://github.com/abhinav2231/employee-management-api-
+
 A production-ready, layered **FastAPI** application skeleton backed by **PostgreSQL** in **Docker Compose**, with environment configuration via `pydantic-settings`, automated testing via `pytest`, and an early team handoff package for Aura Workforce OS.
 
 ---
