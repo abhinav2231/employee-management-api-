@@ -17,14 +17,34 @@ TEST_DB_URI = os.getenv(
     f"postgresql+psycopg2://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{host}:{settings.POSTGRES_PORT}/aura_workforce_test_db",
 )
 
+def ensure_test_database_exists():
+    admin_db = "postgres"
+    admin_uri = f"postgresql+psycopg2://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{host}:{settings.POSTGRES_PORT}/{admin_db}"
+    admin_engine = create_engine(admin_uri, isolation_level="AUTOCOMMIT")
+    try:
+        with admin_engine.connect() as conn:
+            check_sql = text("SELECT 1 FROM pg_database WHERE datname = 'aura_workforce_test_db'")
+            res = conn.execute(check_sql).scalar()
+            if not res:
+                conn.execute(text("CREATE DATABASE aura_workforce_test_db"))
+    except Exception:
+        pass
+    finally:
+        admin_engine.dispose()
+
+
+ensure_test_database_exists()
+
 test_engine = create_engine(TEST_DB_URI, pool_pre_ping=True)
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db():
+    Base.metadata.drop_all(bind=test_engine)
     Base.metadata.create_all(bind=test_engine)
     yield
+    Base.metadata.drop_all(bind=test_engine)
 
 
 @pytest.fixture(scope="session")
@@ -39,6 +59,7 @@ def db() -> Generator[Session, None, None]:
     tables = [
         "attendance",
         "salary_records",
+        "salary_revisions",
         "employee_assignments",
         "employee_roles",
         "employees",

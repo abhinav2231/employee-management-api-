@@ -10,18 +10,26 @@ from scripts.seed import seed_database
 from scripts.export_csv import export_database_to_csv
 
 
-def test_master_dataset_cleaning():
-    dataset = load_and_clean_master_dataset()
-    assert len(dataset["departments"]) == 11
-    assert len(dataset["roles"]) == 58
-    assert len(dataset["employees"]) == 745
-    assert len(dataset["salaries"]) > 1000
-    assert len(dataset["attendance"]) > 10000
+@pytest.fixture(scope="session")
+def master_dataset():
+    return load_and_clean_master_dataset()
 
-    for emp in dataset["employees"]:
+
+def test_master_dataset_cleaning(master_dataset):
+    assert len(master_dataset["departments"]) == 11
+    assert len(master_dataset["roles"]) == 58
+    assert len(master_dataset["employees"]) == 745
+    assert len(master_dataset["salaries"]) == 3781
+    assert len(master_dataset["attendance"]) == 36751
+    assert len(master_dataset["assignments"]) == 1606
+    assert len(master_dataset["salary_revisions"]) == 2459
+
+    for emp in master_dataset["employees"]:
         assert "@auraworkforce.io" in emp["email"]
         assert emp["phone_number"] is not None
         assert emp["salary"] > 0
+        assert emp["employment_status"] is not None
+        assert emp["work_mode"] in ["Hybrid", "Remote", "Onsite"]
 
 
 def test_faker_fixed_seed_repeatability():
@@ -39,9 +47,8 @@ def test_faker_fixed_seed_repeatability():
     assert emp1["salary"] == emp2["salary"]
 
 
-def test_no_test123_dummy_data():
-    dataset = load_and_clean_master_dataset()
-    for emp in dataset["employees"][:100]:
+def test_no_test123_dummy_data(master_dataset):
+    for emp in master_dataset["employees"][:100]:
         full_name = f"{emp['first_name']} {emp['last_name']}"
         assert not re.search(r"test\d*", full_name, re.IGNORECASE)
         assert not re.search(r"dummy|sample|fake|foo|bar", full_name, re.IGNORECASE)
@@ -52,25 +59,36 @@ def test_no_test123_dummy_data():
         assert emp["phone_number"] is not None
 
 
-def test_linked_relational_integrity():
-    dataset = load_and_clean_master_dataset()
-    valid_codes = {e["employee_code"] for e in dataset["employees"]}
+def test_linked_relational_integrity(master_dataset):
+    valid_codes = {e["employee_code"] for e in master_dataset["employees"]}
+    valid_statuses = [
+        "PRESENT",
+        "REMOTE",
+        "PAID_LEAVE",
+        "UNPAID_LEAVE",
+        "HALF_DAY",
+        "ABSENT",
+        "ABSENT_LOP",
+        "HALF_DAY_UNPAID",
+    ]
 
-    for sal in dataset["salaries"][:500]:
+    for sal in master_dataset["salaries"][:500]:
         assert sal["employee_code"] in valid_codes
         assert sal["base_salary"] > 0
         assert sal["net_salary"] > 0
 
-    for att in dataset["attendance"][:500]:
+    for att in master_dataset["attendance"][:500]:
         assert att["employee_code"] in valid_codes
-        assert att["status"] in ["PRESENT", "REMOTE", "PAID_LEAVE", "UNPAID_LEAVE", "HALF_DAY", "ABSENT"]
+        assert att["status"] in valid_statuses
+        if att["notes"]:
+            assert "NAN" not in att["notes"]
 
 
 def test_idempotent_seeding(db: Session):
-    summary1 = seed_database(reset=False, db=db)
+    summary1 = seed_database(reset=False, db=db, do_export=False)
     emp_count_run1 = db.query(Employee).count()
 
-    summary2 = seed_database(reset=False, db=db)
+    summary2 = seed_database(reset=False, db=db, do_export=False)
     emp_count_run2 = db.query(Employee).count()
 
     assert emp_count_run1 == emp_count_run2
@@ -78,9 +96,9 @@ def test_idempotent_seeding(db: Session):
     assert emp_count_run1 == 745
 
 
-def test_csv_exports_valid(db: Session):
-    seed_database(reset=False, db=db)
-    result = export_database_to_csv(db=db)
+def test_csv_exports_valid(db: Session, tmp_path):
+    seed_database(reset=False, db=db, do_export=False)
+    result = export_database_to_csv(output_dir=str(tmp_path), db=db)
     assert os.path.exists(result["employees_csv"])
     assert os.path.exists(result["salaries_csv"])
     assert os.path.exists(result["attendance_csv"])
@@ -95,9 +113,12 @@ def test_csv_exports_valid(db: Session):
     sal_df = pd.read_csv(result["salaries_csv"])
     assert "employee_code" in sal_df.columns
     assert "net_salary" in sal_df.columns
-    assert len(sal_df) > 0
+    assert len(sal_df) == 3781
 
     att_df = pd.read_csv(result["attendance_csv"])
     assert "employee_code" in att_df.columns
     assert "status" in att_df.columns
-    assert len(att_df) > 0
+    assert len(att_df) == 36751
+    sample_notes = att_df["notes"].dropna().tolist()
+    for n in sample_notes[:100]:
+        assert "NAN" not in str(n)

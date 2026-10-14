@@ -3,7 +3,7 @@ import os
 import sys
 from typing import Optional, Dict, Any
 import pandas as pd
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
@@ -13,6 +13,7 @@ from app.core.database import SessionLocal, engine
 
 engine.echo = False
 from app.models.employee import Employee
+from app.models.role import EmployeeRole
 from app.models.salary import SalaryRecord
 from app.models.attendance import Attendance
 
@@ -31,7 +32,16 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] 
         close_session = True
 
     try:
-        employees = db.query(Employee).order_by(Employee.employee_code.asc()).all()
+        employees = (
+            db.query(Employee)
+            .options(
+                joinedload(Employee.department),
+                joinedload(Employee.manager),
+                selectinload(Employee.employee_roles).joinedload(EmployeeRole.role),
+            )
+            .order_by(Employee.employee_code.asc())
+            .all()
+        )
         emp_rows = []
         for e in employees:
             primary_role = next((er.role.title for er in e.employee_roles if er.is_primary and er.role), None)
@@ -58,38 +68,69 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] 
         emp_path = os.path.join(output_dir, "employees.csv")
         emp_df.to_csv(emp_path, index=False, encoding="utf-8", lineterminator="\n")
 
-        salaries = db.query(SalaryRecord).join(SalaryRecord.employee).order_by(Employee.employee_code.asc(), SalaryRecord.pay_period.asc()).all()
+        sal_query = (
+            db.query(
+                Employee.employee_code,
+                Employee.first_name,
+                Employee.last_name,
+                SalaryRecord.pay_period,
+                SalaryRecord.effective_date,
+                SalaryRecord.base_salary,
+                SalaryRecord.allowances,
+                SalaryRecord.bonuses,
+                SalaryRecord.deductions,
+                SalaryRecord.net_salary,
+                SalaryRecord.currency,
+                SalaryRecord.payment_status,
+            )
+            .join(Employee, SalaryRecord.employee_id == Employee.id)
+            .order_by(Employee.employee_code.asc(), SalaryRecord.pay_period.asc())
+            .all()
+        )
         sal_rows = []
-        for s in salaries:
+        for row in sal_query:
             sal_rows.append({
-                "employee_code": s.employee.employee_code if s.employee else None,
-                "employee_name": f"{s.employee.first_name} {s.employee.last_name}" if s.employee else None,
-                "pay_period": s.pay_period,
-                "effective_date": s.effective_date.isoformat() if s.effective_date else None,
-                "base_salary": float(s.base_salary),
-                "allowances": float(s.allowances),
-                "bonuses": float(s.bonuses),
-                "deductions": float(s.deductions),
-                "net_salary": float(s.net_salary),
-                "currency": s.currency,
-                "payment_status": s.payment_status,
+                "employee_code": row[0],
+                "employee_name": f"{row[1]} {row[2]}",
+                "pay_period": row[3],
+                "effective_date": row[4].isoformat() if row[4] else None,
+                "base_salary": float(row[5]),
+                "allowances": float(row[6]),
+                "bonuses": float(row[7]),
+                "deductions": float(row[8]),
+                "net_salary": float(row[9]),
+                "currency": row[10],
+                "payment_status": row[11],
             })
 
         sal_df = pd.DataFrame(sal_rows)
         sal_path = os.path.join(output_dir, "salaries.csv")
         sal_df.to_csv(sal_path, index=False, encoding="utf-8", lineterminator="\n")
 
-        attendance = db.query(Attendance).join(Attendance.employee).order_by(Employee.employee_code.asc(), Attendance.date.asc()).all()
+        att_query = (
+            db.query(
+                Employee.employee_code,
+                Attendance.date,
+                Attendance.status,
+                Attendance.check_in,
+                Attendance.check_out,
+                Attendance.hours_worked,
+                Attendance.notes,
+            )
+            .join(Employee, Attendance.employee_id == Employee.id)
+            .order_by(Employee.employee_code.asc(), Attendance.date.asc())
+            .all()
+        )
         att_rows = []
-        for a in attendance:
+        for row in att_query:
             att_rows.append({
-                "employee_code": a.employee.employee_code if a.employee else None,
-                "date": a.date.isoformat() if a.date else None,
-                "status": a.status,
-                "check_in": a.check_in.strftime("%H:%M:%S") if a.check_in else None,
-                "check_out": a.check_out.strftime("%H:%M:%S") if a.check_out else None,
-                "hours_worked": float(a.hours_worked) if a.hours_worked is not None else None,
-                "notes": a.notes,
+                "employee_code": row[0],
+                "date": row[1].isoformat() if row[1] else None,
+                "status": row[2],
+                "check_in": row[3].strftime("%H:%M:%S") if row[3] else None,
+                "check_out": row[4].strftime("%H:%M:%S") if row[4] else None,
+                "hours_worked": float(row[5]) if row[5] is not None else None,
+                "notes": row[6],
             })
 
         att_df = pd.DataFrame(att_rows)

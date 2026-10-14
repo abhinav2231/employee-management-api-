@@ -15,10 +15,12 @@ from app.core.database import SessionLocal, engine
 from app.models.department import Department
 from app.models.role import Role, EmployeeRole
 from app.models.employee import Employee
+from app.models.assignment import EmployeeAssignment
 from app.models.attendance import Attendance
 from app.models.salary import SalaryRecord
+from app.models.salary_revision import SalaryRevision
 from scripts.data_pipeline import load_and_clean_master_dataset
-from scripts.export_csv import export_database_to_csv
+from scripts.export_csv import export_database_to_csv, EXPORTS_DIR
 
 engine.echo = False
 
@@ -105,7 +107,12 @@ def seed_roles(
     return role_code_to_id
 
 
-def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str, Any]:
+def seed_database(
+    reset: bool = False,
+    db: Optional[Session] = None,
+    do_export: bool = True,
+    export_dir: str = EXPORTS_DIR,
+) -> Dict[str, Any]:
     close_session = False
     if db is None:
         db = SessionLocal()
@@ -116,8 +123,8 @@ def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str
             print("[INFO] Resetting database tables (--reset requested)...")
             db.execute(
                 text(
-                    "TRUNCATE TABLE attendance, salary_records, employee_assignments, "
-                    "employee_roles, employees, roles, departments CASCADE;"
+                    "TRUNCATE TABLE attendance, salary_records, salary_revisions, "
+                    "employee_assignments, employee_roles, employees, roles, departments CASCADE;"
                 )
             )
             db.commit()
@@ -128,6 +135,8 @@ def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str
         raw_employees = dataset["employees"]
         raw_salaries = dataset["salaries"]
         raw_attendance = dataset["attendance"]
+        raw_assignments = dataset.get("assignments", [])
+        raw_revisions = dataset.get("salary_revisions", [])
 
         dept_code_to_id = seed_departments(db, depts_data)
         role_code_to_id = seed_roles(db, roles_data, dept_code_to_id)
@@ -144,7 +153,9 @@ def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str
         for item in raw_employees:
             code = item["employee_code"]
             email = item["email"]
-            d_id = dept_code_to_id.get(item["department_code"], 1)
+            d_id = dept_code_to_id.get(item["department_code"])
+            if not d_id:
+                raise ValueError(f"Department code '{item['department_code']}' not found in departments")
 
             existing = existing_emp_by_code.get(code) or existing_emp_by_email.get(email)
 
@@ -154,10 +165,17 @@ def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str
                 existing.department_id = d_id
                 existing.salary = item["salary"]
                 existing.phone_number = item["phone_number"]
+                existing.date_of_birth = item.get("date_of_birth")
                 existing.work_location = item["work_location"]
+                existing.work_mode = item.get("work_mode")
                 existing.employment_type = item["employment_type"]
+                existing.employment_status = item.get("employment_status")
                 existing.hire_date = item["hire_date"]
                 existing.exit_date = item["exit_date"]
+                existing.exit_type = item.get("exit_type")
+                existing.exit_reason = item.get("exit_reason")
+                existing.pf_applicable = item.get("pf_applicable")
+                existing.esi_applicable = item.get("esi_applicable")
                 existing.is_active = item["is_active"]
                 emp_code_to_id[code] = existing.id
                 updated_emp_count += 1
@@ -168,13 +186,20 @@ def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str
                     last_name=item["last_name"],
                     email=email,
                     phone_number=item["phone_number"],
+                    date_of_birth=item.get("date_of_birth"),
                     department_id=d_id,
                     manager_id=None,
                     salary=item["salary"],
                     hire_date=item["hire_date"],
                     exit_date=item["exit_date"],
+                    exit_type=item.get("exit_type"),
+                    exit_reason=item.get("exit_reason"),
                     work_location=item["work_location"],
+                    work_mode=item.get("work_mode"),
                     employment_type=item["employment_type"],
+                    employment_status=item.get("employment_status"),
+                    pf_applicable=item.get("pf_applicable"),
+                    esi_applicable=item.get("esi_applicable"),
                     is_active=item["is_active"],
                 )
                 db.add(new_emp)
@@ -184,10 +209,6 @@ def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str
                 inserted_emp_count += 1
 
         db.commit()
-
-        existing_emp_roles = {
-            (er.employee_id, er.role_id) for er in db.query(EmployeeRole).all()
-        }
 
         for item in raw_employees:
             emp_id = emp_code_to_id.get(item["employee_code"])
@@ -204,7 +225,14 @@ def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str
             role_code = item.get("role_code")
             role_id = role_code_to_id.get(role_code)
             if emp_id and role_id:
-                if (emp_id, role_id) not in existing_emp_roles:
+                existing_primary = (
+                    db.query(EmployeeRole)
+                    .filter(EmployeeRole.employee_id == emp_id, EmployeeRole.is_primary.is_(True))
+                    .first()
+                )
+                if existing_primary:
+                    existing_primary.role_id = role_id
+                else:
                     db.add(
                         EmployeeRole(
                             employee_id=emp_id,
@@ -212,9 +240,91 @@ def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str
                             is_primary=True,
                         )
                     )
-                    existing_emp_roles.add((emp_id, role_id))
 
         db.commit()
+
+        existing_asgs = {
+            a.assignment_code: a
+            for a in db.query(EmployeeAssignment).all()
+            if a.assignment_code
+        }
+        to_insert_asg: List[EmployeeAssignment] = []
+        for asg in raw_assignments:
+            code = asg["assignment_code"]
+            emp_id = emp_code_to_id.get(asg["employee_code"])
+            if not emp_id:
+                continue
+            d_id = dept_code_to_id.get(asg["department_code"])
+            r_id = role_code_to_id.get(asg["role_code"])
+            m_id = emp_code_to_id.get(asg["manager_code"])
+            if code in existing_asgs:
+                rec = existing_asgs[code]
+                rec.employee_id = emp_id
+                rec.effective_from = asg["effective_from"]
+                rec.effective_to = asg["effective_to"]
+                rec.department_id = d_id
+                rec.role_id = r_id
+                rec.job_level = asg["job_level"]
+                rec.manager_id = m_id
+                rec.change_reason = asg["change_reason"]
+            else:
+                to_insert_asg.append(
+                    EmployeeAssignment(
+                        assignment_code=code,
+                        employee_id=emp_id,
+                        effective_from=asg["effective_from"],
+                        effective_to=asg["effective_to"],
+                        department_id=d_id,
+                        role_id=r_id,
+                        job_level=asg["job_level"],
+                        manager_id=m_id,
+                        change_reason=asg["change_reason"],
+                    )
+                )
+
+        if to_insert_asg:
+            db.bulk_save_objects(to_insert_asg)
+            db.commit()
+
+        existing_revs = {
+            r.revision_code: r
+            for r in db.query(SalaryRevision).all()
+            if r.revision_code
+        }
+        to_insert_rev: List[SalaryRevision] = []
+        for rev in raw_revisions:
+            code = rev["revision_code"]
+            emp_id = emp_code_to_id.get(rev["employee_code"])
+            if not emp_id:
+                continue
+            if code in existing_revs:
+                rec = existing_revs[code]
+                rec.employee_id = emp_id
+                rec.effective_from = rev["effective_from"]
+                rec.revision_reason = rev["revision_reason"]
+                rec.previous_annual_fixed = rev["previous_annual_fixed"]
+                rec.new_annual_fixed = rev["new_annual_fixed"]
+                rec.pct_change = rev["pct_change"]
+                rec.role_id_after = rev["role_id_after"]
+                rec.approved_by = rev["approved_by"]
+            else:
+                to_insert_rev.append(
+                    SalaryRevision(
+                        revision_code=code,
+                        employee_id=emp_id,
+                        effective_from=rev["effective_from"],
+                        revision_reason=rev["revision_reason"],
+                        previous_annual_fixed=rev["previous_annual_fixed"],
+                        new_annual_fixed=rev["new_annual_fixed"],
+                        pct_change=rev["pct_change"],
+                        role_id_after=rev["role_id_after"],
+                        approved_by=rev["approved_by"],
+                    )
+                )
+
+        if to_insert_rev:
+            db.bulk_save_objects(to_insert_rev)
+            db.commit()
 
         existing_salaries = {
             (s.employee_id, s.pay_period): s for s in db.query(SalaryRecord).all()
@@ -295,7 +405,9 @@ def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str
             db.bulk_save_objects(to_insert_att)
             db.commit()
 
-        export_files = export_database_to_csv(db=db)
+        export_files = {}
+        if do_export:
+            export_files = export_database_to_csv(output_dir=export_dir, db=db)
 
         return {
             "departments_total": len(dept_code_to_id),
@@ -303,6 +415,8 @@ def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str
             "employees_total": len(emp_code_to_id),
             "employees_inserted": inserted_emp_count,
             "employees_updated": updated_emp_count,
+            "assignments_total": len(raw_assignments),
+            "salary_revisions_total": len(raw_revisions),
             "salaries_total": len(raw_salaries),
             "attendance_total": len(raw_attendance),
             "exports": export_files,
@@ -323,7 +437,19 @@ def main():
         action="store_true",
         help="Truncate all tables before seeding",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Skip confirmation prompt when resetting tables",
+    )
     args = parser.parse_args()
+
+    if args.reset and not args.force:
+        if sys.stdin.isatty():
+            confirm = input("Are you sure you want to truncate all tables? (y/N): ").strip().lower()
+            if confirm != "y":
+                print("[INFO] Seeding aborted by user.")
+                sys.exit(0)
 
     seed_database(reset=args.reset)
 

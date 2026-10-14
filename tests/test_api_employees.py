@@ -325,10 +325,40 @@ def test_delete_employee_soft_delete(client: TestClient, setup_dept_and_role, db
     ids = [e["id"] for e in res_list.json()["items"]]
     assert emp.id not in ids
 
-    # Record still exists and can be retrieved directly showing is_active=False
+    # Record still exists and can be retrieved directly showing is_active=False and exit_date set
     res_get = client.get(f"/api/v1/employees/{emp.id}")
     assert res_get.status_code == 200
     assert res_get.json()["is_active"] is False
+    assert res_get.json()["exit_date"] is not None
+
+
+def test_assign_inactive_manager_fails(client: TestClient, setup_dept_and_role, db: Session):
+    dept, _ = setup_dept_and_role
+    inactive_mgr = Employee(
+        first_name="Old",
+        last_name="Manager",
+        email="old.mgr@auraworkforce.io",
+        department_id=dept.id,
+        salary=Decimal("120000.00"),
+        hire_date=date(2021, 1, 1),
+        is_active=False,
+    )
+    db.add(inactive_mgr)
+    db.commit()
+    db.refresh(inactive_mgr)
+
+    payload = {
+        "first_name": "New",
+        "last_name": "Joiner",
+        "email": "new.joiner@auraworkforce.io",
+        "department_id": dept.id,
+        "manager_id": inactive_mgr.id,
+        "salary": 90000.0,
+        "hire_date": "2024-01-01",
+    }
+    res = client.post("/api/v1/employees", json=payload)
+    assert res.status_code == 400
+    assert "inactive" in res.json()["detail"].lower()
 
 
 def test_get_employee_team(client: TestClient, setup_dept_and_role, db: Session):

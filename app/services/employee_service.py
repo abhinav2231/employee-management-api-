@@ -80,6 +80,11 @@ class EmployeeService:
                 f"Manager '{mgr_val}' does not exist",
                 field="manager_id",
             )
+        if not manager.is_active:
+            raise BadRequestException(
+                f"Cannot assign inactive or soft-deleted employee '{mgr_val}' as manager",
+                field="manager_id",
+            )
         return manager
 
     @staticmethod
@@ -323,6 +328,9 @@ class EmployeeService:
             employee.employment_type = update_data["employment_type"]
         if "is_active" in update_data and update_data["is_active"] is not None:
             employee.is_active = update_data["is_active"]
+            if not employee.is_active and not employee.exit_date:
+                from datetime import date
+                employee.exit_date = date.today()
 
         try:
             db.commit()
@@ -343,6 +351,9 @@ class EmployeeService:
             report.manager_id = employee.manager_id
 
         employee.is_active = False
+        if not employee.exit_date:
+            from datetime import date
+            employee.exit_date = date.today()
         db.commit()
 
     @staticmethod

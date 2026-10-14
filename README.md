@@ -12,11 +12,18 @@ A production-ready, layered **FastAPI** application backed by **PostgreSQL** in 
 Ensure Docker Desktop is installed and running, then execute:
 
 ```bash
+# 1. (Optional) Customize environment variables from the template:
+cp .env.example .env
+
+# 2. Build and launch database and API containers:
 docker compose up --build -d
 ```
 
+> **Note on `.env`:** The `docker-compose.yml` configures `required: false` for `.env`. All necessary configuration defaults are pre-baked, allowing a fresh clone to start up immediately without requiring manual `.env` file creation.
+
 Both the PostgreSQL database (`db`) and FastAPI application (`api`) will start up:
-- Database migrations (`alembic upgrade head`) execute automatically before the API accepts traffic.
+- Database migrations (`alembic upgrade head`) execute automatically via `entrypoint.sh` before the API accepts traffic.
+- Test database (`aura_workforce_test_db`) is automatically provisioned via Postgres init scripts and test fixtures.
 - **API Server:** [http://localhost:8000](http://localhost:8000)
 - **Interactive Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **ReDoc Documentation:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
@@ -25,6 +32,11 @@ Both the PostgreSQL database (`db`) and FastAPI application (`api`) will start u
 To seed the initial master dataset:
 ```bash
 docker compose exec api python -m scripts.seed
+```
+
+To run the automated test suite in Docker:
+```bash
+docker compose exec api pytest -v
 ```
 
 To stop the services:
@@ -48,56 +60,61 @@ employee_management_api/
 │   │   │   │   ├── employees.py # Employee CRUD, search, filter & team routes
 │   │   │   │   └── departments.py # Department listing and headcount routes
 │   │   │   └── api.py           # v1 router aggregator
-│   ├── core/                    # Core configuration and database session
-│   │   ├── config.py            # Pydantic Settings loaded from .env
-│   │   ├── database.py          # SQLAlchemy engine & session factory
-│   │   └── exceptions.py        # Centralized error envelopes & handlers
-│   ├── models/                  # SQLAlchemy ORM models
-│   │   ├── base.py              # Base and TimestampMixin
-│   │   ├── department.py        # Department entity
-│   │   ├── role.py              # Role & EmployeeRole entities
-│   │   ├── employee.py          # Employee entity with manager self-reference
-│   │   ├── assignment.py        # EmployeeAssignment career history
-│   │   ├── salary.py            # SalaryRecord compensation history
-│   │   └── attendance.py        # Attendance tracking
-│   ├── schemas/                 # Pydantic request/response validation schemas
-│   │   ├── common.py            # PaginatedResponse envelope
-│   │   ├── health.py            # HealthResponse schema
-│   │   ├── department.py        # Department schemas
-│   │   ├── role.py              # Role schemas
-│   │   └── employee.py          # Employee CRUD schemas
-│   ├── services/                # Business logic layer
-│   │   ├── health_service.py    # Health status logic
-│   │   ├── department_service.py# Department business operations & aggregation
-│   │   └── employee_service.py  # Employee operations, cycle detection, validations
-│   └── main.py                  # FastAPI factory & app instance
+│   │   ├── core/                # Core configuration and database session
+│   │   │   ├── config.py        # Pydantic Settings loaded from .env
+│   │   │   ├── database.py      # SQLAlchemy engine & session factory
+│   │   │   └── exceptions.py    # Centralized error envelopes & handlers (with logger.exception)
+│   │   ├── models/              # SQLAlchemy ORM models
+│   │   │   ├── base.py          # Base and TimestampMixin
+│   │   │   ├── department.py    # Department entity
+│   │   │   ├── role.py          # Role & EmployeeRole entities
+│   │   │   ├── employee.py      # Employee entity with manager self-reference & attrition fields
+│   │   │   ├── assignment.py    # EmployeeAssignment career history
+│   │   │   ├── salary.py        # SalaryRecord compensation history
+│   │   │   ├── salary_revision.py # SalaryRevision compensation history
+│   │   │   └── attendance.py    # Attendance tracking with explicit LOP & leave statuses
+│   │   ├── schemas/             # Pydantic request/response validation schemas
+│   │   │   ├── common.py        # PaginatedResponse envelope
+│   │   │   ├── health.py        # HealthResponse schema
+│   │   │   ├── department.py    # Department schemas
+│   │   │   ├── role.py          # Role schemas
+│   │   │   └── employee.py      # Employee CRUD schemas
+│   │   ├── services/            # Business logic layer
+│   │   │   ├── health_service.py    # Health status logic
+│   │   │   ├── department_service.py# Department business operations & aggregation
+│   │   │   └── employee_service.py  # Employee operations, cycle prevention, inactive manager checks
+│   │   └── main.py              # FastAPI factory & app instance
 ├── data/
-│   ├── 01_LedgerForge_Python_Master_Dataset.xlsx # Master dataset
-│   └── exports/                 # Clean CSV exports
-│       ├── employees.csv        # 745 employee records
-│       ├── salaries.csv         # 3,781 salary records
-│       └── attendance.csv       # 36,751 attendance records
+│   ├── 01_LedgerForge_Python_Master_Dataset.xlsx # Master dataset (Zenith Nova Technologies benchmark)
+│   ├── sample_employees.json    # Modernized schema sample (10 realistic records)
+│   ├── sample_employees.csv     # Modernized schema sample CSV
+│   └── exports/                 # Standardized CSV exports
+│       ├── employees.csv        # 745 employee records with en_IN numbers & attrition data
+│       ├── salaries.csv         # 3,781 CY2026 payslip records
+│       └── attendance.csv       # 36,751 attendance records with explicit loss-of-pay statuses
 ├── docs/
 │   ├── api_contract.md          # Comprehensive early API contract
 │   ├── er_diagram.md            # Data model and architectural decisions
-│   └── openapi_draft.json       # OpenAPI 3.1 specification export
+│   └── openapi_draft.json       # Live OpenAPI 3.1 specification export
 ├── scripts/
-│   ├── entrypoint.sh            # Container startup script (runs alembic upgrade head)
-│   ├── data_pipeline.py         # Dataset extraction & pandas cleaning
+│   ├── entrypoint.sh            # Container startup script (runs alembic upgrade head, eol=lf)
+│   ├── data_pipeline.py         # Dataset extraction & pandas cleaning (NaN-safe leave parsing)
 │   ├── seed.py                  # Master idempotent database seeder
-│   ├── export_csv.py            # Portable CSV export utility
+│   ├── export_csv.py            # High-performance column-projected CSV export utility
+│   ├── init_test_db.sql         # Postgres auto-init script for aura_workforce_test_db
 │   └── view_data.py             # CLI database visualizer
 ├── tests/
-│   ├── conftest.py              # Isolated test database runner (aura_workforce_test_db)
+│   ├── conftest.py              # Auto-provisioning test database runner (aura_workforce_test_db)
 │   ├── test_health.py           # Health endpoint tests
 │   ├── test_models.py           # Check constraints & relationship tests
 │   ├── test_api_departments.py  # Department endpoint tests
-│   ├── test_api_employees.py    # Employee CRUD, cycle prevention & patch tests
-│   └── test_seed_pipeline.py    # Seeding, idempotency, Faker repeatability tests
+│   ├── test_api_employees.py    # Employee CRUD, cycle prevention & inactive manager tests
+│   └── test_seed_pipeline.py    # Seeding, idempotency, Faker repeatability & isolated exports
 ├── .env.example                 # Environment variables template (no secrets committed)
+├── .gitattributes               # LF line endings enforcement for Docker portability
 ├── .gitignore                   # Standard gitignore (secrets, venv, caches)
 ├── Dockerfile                   # Python 3.12-slim container image definition
-├── docker-compose.yml           # Compose setup for 'api' and 'db' services
+├── docker-compose.yml           # Compose setup with optional .env & test DB auto-init
 ├── pyproject.toml               # Modern Python project configuration
 ├── requirements.txt             # Locked project dependencies
 └── README.md                    # Setup and execution guide
@@ -113,10 +130,11 @@ erDiagram
     EMPLOYEES ||--o{ EMPLOYEES : "manages (manager_id)"
     EMPLOYEES ||--o{ EMPLOYEE_ROLES : "holds"
     ROLES ||--o{ EMPLOYEE_ROLES : "assigned_to"
-    EMPLOYEES ||--o{ EMPLOYEE_ASSIGNMENTS : "career_history"
-    DEPARTMENTS ||--o{ EMPLOYEE_ASSIGNMENTS : "department_assignment"
+    EMPLOYEES ||--o{ EMPLOYEE_ASSIGNMENTS : "career_progression"
+    DEPARTMENTS ||--o{ EMPLOYEE_ASSIGNMENTS : "dept_assignment"
     ROLES ||--o{ EMPLOYEE_ASSIGNMENTS : "role_assignment"
-    EMPLOYEES ||--o{ SALARY_RECORDS : "compensation_history"
+    EMPLOYEES ||--o{ SALARY_RECORDS : "payroll_records"
+    EMPLOYEES ||--o{ SALARY_REVISIONS : "salary_revisions"
     EMPLOYEES ||--o{ ATTENDANCE : "attendance_logs"
 
     DEPARTMENTS {
@@ -144,13 +162,20 @@ erDiagram
         string last_name
         string email UK
         string phone_number
+        date date_of_birth
         int department_id FK
         int manager_id FK
         numeric salary
         date hire_date
         date exit_date
+        string employment_status
+        string exit_type
+        string exit_reason
         string work_location
+        string work_mode
         string employment_type
+        boolean pf_applicable
+        boolean esi_applicable
         boolean is_active
     }
 
@@ -188,6 +213,19 @@ erDiagram
         string payment_status
     }
 
+    SALARY_REVISIONS {
+        int id PK
+        string revision_code UK
+        int employee_id FK
+        date effective_from
+        string revision_reason
+        numeric previous_annual_fixed
+        numeric new_annual_fixed
+        numeric pct_change
+        string role_id_after
+        string approved_by
+    }
+
     ATTENDANCE {
         int id PK
         int employee_id FK
@@ -201,10 +239,26 @@ erDiagram
 ```
 
 ### Architectural Decisions
-1. **One-to-Many vs Multi-Role**: Employees hold multiple roles via `employee_roles` with an `is_primary` flag, allowing secondary duties without breaking schema migrations.
-2. **Organizational Hierarchy & Cycle Prevention**: Self-referential `manager_id` foreign key with acyclic hierarchy validation. Both direct self-management and multi-hop circular reporting (A → B → A, A → B → C → A) are prevented.
-3. **Soft Deletes**: Soft deletion sets `is_active = False`. When a manager is soft-deleted, their direct reports are automatically reassigned to the manager's manager to eliminate dangling hierarchy nodes.
-4. **Isolated Test Execution**: Pytest runs against an isolated test database (`aura_workforce_test_db`), ensuring testing never alters or wipes the development master dataset.
+1. **One-to-Many vs Multi-Role**: Employees hold multiple roles via `employee_roles` with an `is_primary` flag, allowing secondary duties without breaking schema migrations. If an employee's role changes in the master dataset, their primary role is updated in place.
+2. **Organizational Hierarchy & Cycle Prevention**: Self-referential `manager_id` foreign key with acyclic hierarchy validation. Both direct self-management and multi-hop circular reporting (A → B → A, A → B → C → A) are prevented with a 400 Bad Request.
+3. **Soft Deletes & Inactive Manager Safeguards**:
+   - Soft deletion sets `is_active = False` and automatically records `exit_date = date.today()` if not already set.
+   - When a manager is soft-deleted, direct reports are automatically reparented to the manager's manager.
+   - Assigning an inactive or soft-deleted employee as a manager is strictly rejected with a 400 Bad Request.
+4. **Preservation of Career & Attrition History**:
+   - `employee_assignments` stores 1,606 progression events (job level, department, role, manager changes).
+   - `salary_revisions` stores 2,459 compensation adjustments and approvals.
+   - `employment_status`, `exit_type`, and `exit_reason` preserve granular exit classifications (Resigned, Terminated, Contract Ended; Voluntary, Involuntary).
+5. **Loss-of-Pay & Leave Specificity**:
+   - Attendance tracking preserves explicit loss-of-pay statuses: `ABSENT_LOP` and `HALF_DAY_UNPAID` alongside `PAID_LEAVE`, `UNPAID_LEAVE`, `REMOTE`, `PRESENT`, `HALF_DAY`, and `ABSENT`.
+   - String missing-value conversion bug (`Leave Code: NAN`) is completely eliminated by pandas `pd.notna` pre-checks. `"Work From Home"` notes correctly populate on remote attendance logs.
+6. **Isolated & Non-Destructive Test Execution**:
+   - Pytest automatically provisions and manages an isolated database (`aura_workforce_test_db`).
+   - The master dataset is parsed once per test session via a session fixture, dramatically accelerating test execution.
+   - CSV export tests operate in isolated temporary directories (`tmp_path`), guaranteeing test runs never overwrite repository CSV exports in `data/exports/`.
+7. **Security & Access Control Note (Phase 1 vs Task 5)**:
+   - In Phase 1 (Tasks 1–4), `GET /employees` returns full employee records including compensation fields without authentication. This fulfills the internal engine requirements for early handoff.
+   - Task 5 (Authentication & RBAC) will layer JWT authentication, permission scopes, role-based field masking (hiding salaries from non-HR callers), and audit trails for compensation and manager revisions.
 
 ---
 
@@ -213,19 +267,19 @@ erDiagram
 ### Running Tests Locally
 
 ```bash
-# Run full automated test suite (33 tests)
+# Run full automated test suite (34 tests)
 pytest -v
 ```
 
-All 33 tests execute against the isolated test database:
+All 34 tests execute against the auto-provisioned isolated test database:
 ```text
-======================= 33 passed in 149.22s =======================
+======================= 34 passed in ~25s =======================
 ```
 
 ### Proving End-to-End Operation (Docker)
 
 ```bash
-# 1. Start containers (applies migrations automatically)
+# 1. Start containers (auto-applies migrations and provisions test DB)
 docker compose up --build -d
 
 # 2. Check health endpoint
@@ -243,7 +297,7 @@ docker compose exec api python -m scripts.seed
 # 5. Verify idempotent seeding (row counts remain unchanged)
 docker compose exec api python -m scripts.seed
 
-# 6. Run automated test suite
+# 6. Run automated test suite inside Docker
 docker compose exec api pytest -v
 ```
 
@@ -252,18 +306,25 @@ docker compose exec api pytest -v
 ## 📊 Dataset Provenance & Clean Exports
 
 - **Source File:** [`data/01_LedgerForge_Python_Master_Dataset.xlsx`](data/01_LedgerForge_Python_Master_Dataset.xlsx)
-- **Provenance & License:** Enterprise benchmark workforce and payroll data distributed under the **Creative Commons Attribution 4.0 International (CC BY 4.0)**.
-- **Enrichment & Standardization:**
-  - Names, departments, roles, compensation records, and attendance histories originate from the master dataset.
-  - Work emails are standardized to `@auraworkforce.io`.
-  - Phone numbers are generated deterministically using `Faker("en_IN", seed=42)` for realistic Indian corporate numbers.
+- **Provenance & Benchmarking Origin:**
+  - **Dataset Title:** *LedgerForge Enterprise Master Dataset: Section 1 — Python: Core Payroll, Accounting & Employee Data Engine*.
+  - **Simulated Entity:** Zenith Nova Technologies Pvt Ltd (mid-size Indian technology company, cut-off date September 30, 2026).
+  - **Original Source & License:** Published on **Kaggle** as part of the LedgerForge 20-task workforce and payroll engineering benchmark, distributed under the **Creative Commons Attribution 4.0 International License (CC BY 4.0)**.
+- **Headline Numbers & Verified Schema Metrics:**
+  - **Employees Ever Employed:** Exactly 745 employees (441 active, 304 exited).
+  - **Departments & Roles:** 11 departments and 58 distinct roles spanning 7 job levels.
+  - **Career Progression History:** 1,606 career assignment milestones (`employee_assignments`).
+  - **Salary Revisions:** 2,459 historical compensation adjustments (`salary_revisions`).
+  - **Operational Payroll Window:** Pinned to **CY 2026** (2026-01-01 to 2026-09-01, exactly 9 calendar months), capturing **3,781 active payslip records**.
+  - **Attendance Window:** 4-month operational window (May 30 to Sep 30, 2026) capturing **36,751 attendance records** with clean leave codes and explicit `ABSENT_LOP` / `HALF_DAY_UNPAID` loss-of-pay statuses.
+  - **Phone Numbers:** Deterministically synthesized using `Faker("en_IN", seed=42)` for realistic Indian telecom formats (`+91 ...`, `0...`).
 - **Standardized CSV Exports in [`data/exports/`](data/exports/):**
-  - [`employees.csv`](data/exports/employees.csv): Exactly 745 employee records with `employee_code`, `department_code`, `role_title`, and `manager_code`.
-  - [`salaries.csv`](data/exports/salaries.csv): 3,781 monthly payroll breakdowns with `employee_code`.
-  - [`attendance.csv`](data/exports/attendance.csv): 36,751 attendance records with `employee_code`.
+  - [`employees.csv`](data/exports/employees.csv): 745 employee records with `employee_code`, `department_code`, `department_name`, `role_title`, `manager_code`, `salary`, `hire_date`, `exit_date`, `work_location`, `employment_type`, and `is_active`.
+  - [`salaries.csv`](data/exports/salaries.csv): 3,781 monthly payslip records with `employee_code`, `pay_period`, `base_salary`, `allowances`, `bonuses`, `deductions`, and `net_salary`.
+  - [`attendance.csv`](data/exports/attendance.csv): 36,751 attendance records with `employee_code`, `status`, check-in/out timestamps, hours worked, and verified notes without NaN artifacts.
 
 ---
 
 ## 🔗 Connection to Next Task (Task 5)
 
-With robust CRUD APIs, acyclic manager hierarchy enforcement, isolated testing, and clean master dataset seeding established, **Task 5 (Authentication & Role-Based Access Control)** will introduce JWT authentication tokens and permission scopes.
+With clean master dataset seeding, career history preservation, acyclic manager hierarchy enforcement, isolated testing, and non-destructive CSV exports established, **Task 5 (Authentication & Role-Based Access Control)** will introduce JWT authentication tokens, role-based field masking, and audit logging for compensation and management changes.
