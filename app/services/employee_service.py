@@ -1,7 +1,9 @@
 import math
-from typing import Optional, List, Any
+import re
+from typing import Optional, List, Any, Union
 from sqlalchemy import or_, func
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.exceptions import (
     NotFoundException,
@@ -25,16 +27,11 @@ from app.schemas.role import RoleBrief
 class EmployeeService:
     @staticmethod
     def _find_employee(db: Session, identifier: Any) -> Optional[Employee]:
+        if identifier is None:
+            return None
         ident_str = str(identifier).strip()
         if ident_str.isdigit():
-            emp = db.query(Employee).filter(Employee.id == int(ident_str)).first()
-            if emp:
-                return emp
-            code_candidate = f"EMP-{int(ident_str):04d}"
-            emp = db.query(Employee).filter(Employee.employee_code == code_candidate).first()
-            if emp:
-                return emp
-
+            return db.query(Employee).filter(Employee.id == int(ident_str)).first()
         return db.query(Employee).filter(Employee.employee_code.ilike(ident_str)).first()
 
     @staticmethod
@@ -46,11 +43,6 @@ class EmployeeService:
             dept = db.query(Department).filter(
                 or_(Department.code.ilike(dept_val.strip()), Department.name.ilike(dept_val.strip()))
             ).first()
-        if not dept and (isinstance(dept_val, int) or (isinstance(dept_val, str) and dept_val.isdigit())):
-            all_depts = db.query(Department).order_by(Department.id).all()
-            idx = int(dept_val) - 1
-            if 0 <= idx < len(all_depts):
-                dept = all_depts[idx]
 
         if not dept:
             raise BadRequestException(
@@ -70,11 +62,6 @@ class EmployeeService:
             role = db.query(Role).filter(
                 or_(Role.code.ilike(role_val.strip()), Role.title.ilike(role_val.strip()))
             ).first()
-        if not role and (isinstance(role_val, int) or (isinstance(role_val, str) and role_val.isdigit())):
-            all_roles = db.query(Role).order_by(Role.id).all()
-            idx = int(role_val) - 1
-            if 0 <= idx < len(all_roles):
-                role = all_roles[idx]
 
         if not role:
             raise BadRequestException(
@@ -88,18 +75,43 @@ class EmployeeService:
         if mgr_val is None:
             return None
         manager = EmployeeService._find_employee(db, mgr_val)
-        if not manager and (isinstance(mgr_val, int) or (isinstance(mgr_val, str) and mgr_val.isdigit())):
-            all_emps = db.query(Employee).order_by(Employee.id).all()
-            idx = int(mgr_val) - 1
-            if 0 <= idx < len(all_emps):
-                manager = all_emps[idx]
-
         if not manager:
             raise BadRequestException(
                 f"Manager '{mgr_val}' does not exist",
                 field="manager_id",
             )
         return manager
+
+    @staticmethod
+    def _get_next_employee_code(db: Session) -> str:
+        codes = db.query(Employee.employee_code).filter(Employee.employee_code.like("EMP-%")).all()
+        max_num = 0
+        for (c,) in codes:
+            if c:
+                match = re.search(r"EMP-(\d+)", c, re.IGNORECASE)
+                if match:
+                    num = int(match.group(1))
+                    if num > max_num:
+                        max_num = num
+        next_code = f"EMP-{max_num + 1:04d}"
+        return next_code
+
+    @staticmethod
+    def _detect_manager_cycle(db: Session, employee_id: int, candidate_manager_id: int) -> None:
+        if employee_id == candidate_manager_id:
+            raise BadRequestException("An employee cannot be their own manager", field="manager_id")
+
+        visited = {employee_id}
+        curr_id = candidate_manager_id
+        while curr_id:
+            if curr_id in visited:
+                raise BadRequestException(
+                    "Manager assignment would create a circular reporting hierarchy",
+                    field="manager_id",
+                )
+            visited.add(curr_id)
+            mgr_row = db.query(Employee.manager_id).filter(Employee.id == curr_id).first()
+            curr_id = mgr_row[0] if mgr_row else None
 
     @staticmethod
     def create_employee(db: Session, employee_in: EmployeeCreate) -> EmployeeResponse:
@@ -124,11 +136,7 @@ class EmployeeService:
                 )
             final_code = code_val
         else:
-            total_emps = db.query(Employee).count()
-            final_code = f"EMP-{total_emps + 1:04d}"
-            while db.query(Employee).filter(Employee.employee_code == final_code).first():
-                total_emps += 1
-                final_code = f"EMP-{total_emps + 1:04d}"
+            final_code = EmployeeService._get_next_employee_code(db)
 
         employee = Employee(
             employee_code=final_code,
@@ -144,7 +152,15 @@ class EmployeeService:
             is_active=employee_in.is_active,
         )
         db.add(employee)
-        db.flush()
+
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            raise ConflictException(
+                f"Employee with email '{employee_in.email}' or code '{final_code}' already exists",
+                field="email",
+            )
 
         if role is not None:
             emp_role = EmployeeRole(
@@ -161,7 +177,20 @@ class EmployeeService:
 
     @staticmethod
     def get_employee(db: Session, employee_id: Any) -> EmployeeResponse:
-        employee = EmployeeService._find_employee(db, employee_id)
+        query = (
+            db.query(Employee)
+            .options(
+                joinedload(Employee.department),
+                joinedload(Employee.manager),
+                selectinload(Employee.employee_roles).joinedload(EmployeeRole.role),
+            )
+        )
+        ident_str = str(employee_id).strip()
+        if ident_str.isdigit():
+            employee = query.filter(Employee.id == int(ident_str)).first()
+        else:
+            employee = query.filter(Employee.employee_code.ilike(ident_str)).first()
+
         if not employee:
             raise NotFoundException(f"Employee with ID or code '{employee_id}' not found", field="id")
         return EmployeeService._format_employee_response(employee)
@@ -176,15 +205,17 @@ class EmployeeService:
         q: Optional[str] = None,
         include_inactive: bool = False,
     ) -> PaginatedResponse[EmployeeResponse]:
-        query = db.query(Employee)
+        query = db.query(Employee).options(
+            joinedload(Employee.department),
+            joinedload(Employee.manager),
+            selectinload(Employee.employee_roles).joinedload(EmployeeRole.role),
+        )
 
         if not include_inactive:
             query = query.filter(Employee.is_active.is_(True))
 
         if employee_code and employee_code.strip():
             code_term = employee_code.strip()
-            if code_term.isdigit():
-                code_term = f"EMP-{int(code_term):04d}"
             query = query.filter(Employee.employee_code.ilike(f"%{code_term}%"))
 
         if department:
@@ -238,30 +269,35 @@ class EmployeeService:
         if not employee:
             raise NotFoundException(f"Employee with ID or code '{employee_id}' not found", field="id")
 
-        if employee_in.email is not None and employee_in.email != employee.email:
+        update_data = employee_in.model_dump(exclude_unset=True)
+
+        if "email" in update_data and update_data["email"] != employee.email:
             existing_email = db.query(Employee).filter(
-                Employee.email == employee_in.email,
+                Employee.email == update_data["email"],
                 Employee.id != employee.id,
             ).first()
             if existing_email:
                 raise ConflictException(
-                    f"Employee with work email '{employee_in.email}' already exists",
+                    f"Employee with work email '{update_data['email']}' already exists",
                     field="email",
                 )
-            employee.email = employee_in.email
+            employee.email = update_data["email"]
 
-        if employee_in.department_id is not None:
-            dept = EmployeeService._resolve_department(db, employee_in.department_id)
+        if "department_id" in update_data and update_data["department_id"] is not None:
+            dept = EmployeeService._resolve_department(db, update_data["department_id"])
             employee.department_id = dept.id
 
-        if employee_in.manager_id is not None:
-            manager = EmployeeService._resolve_manager(db, employee_in.manager_id)
-            if manager and manager.id == employee.id:
-                raise BadRequestException("An employee cannot be their own manager", field="manager_id")
-            employee.manager_id = manager.id if manager else None
+        if "manager_id" in update_data:
+            mgr_val = update_data["manager_id"]
+            if mgr_val is None:
+                employee.manager_id = None
+            else:
+                manager = EmployeeService._resolve_manager(db, mgr_val)
+                EmployeeService._detect_manager_cycle(db, employee.id, manager.id)
+                employee.manager_id = manager.id
 
-        if employee_in.role_id is not None:
-            role = EmployeeService._resolve_role(db, employee_in.role_id)
+        if "role_id" in update_data and update_data["role_id"] is not None:
+            role = EmployeeService._resolve_role(db, update_data["role_id"])
             if role:
                 for er in employee.employee_roles:
                     if er.is_primary:
@@ -273,20 +309,28 @@ class EmployeeService:
                 else:
                     db.add(EmployeeRole(employee_id=employee.id, role_id=role.id, is_primary=True))
 
-        if employee_in.first_name is not None:
-            employee.first_name = employee_in.first_name
-        if employee_in.last_name is not None:
-            employee.last_name = employee_in.last_name
-        if employee_in.salary is not None:
-            employee.salary = employee_in.salary
-        if employee_in.hire_date is not None:
-            employee.hire_date = employee_in.hire_date
-        if employee_in.is_active is not None:
-            employee.is_active = employee_in.is_active
+        if "first_name" in update_data and update_data["first_name"] is not None:
+            employee.first_name = update_data["first_name"]
+        if "last_name" in update_data and update_data["last_name"] is not None:
+            employee.last_name = update_data["last_name"]
+        if "salary" in update_data and update_data["salary"] is not None:
+            employee.salary = update_data["salary"]
+        if "hire_date" in update_data and update_data["hire_date"] is not None:
+            employee.hire_date = update_data["hire_date"]
+        if "work_location" in update_data:
+            employee.work_location = update_data["work_location"]
+        if "employment_type" in update_data:
+            employee.employment_type = update_data["employment_type"]
+        if "is_active" in update_data and update_data["is_active"] is not None:
+            employee.is_active = update_data["is_active"]
 
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise ConflictException("Database integrity conflict occurred during update", field="email")
+
         db.refresh(employee)
-
         return EmployeeService._format_employee_response(employee)
 
     @staticmethod
@@ -294,6 +338,9 @@ class EmployeeService:
         employee = EmployeeService._find_employee(db, employee_id)
         if not employee:
             raise NotFoundException(f"Employee with ID or code '{employee_id}' not found", field="id")
+
+        for report in employee.direct_reports:
+            report.manager_id = employee.manager_id
 
         employee.is_active = False
         db.commit()

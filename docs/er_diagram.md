@@ -16,6 +16,8 @@ erDiagram
     EMPLOYEES ||--o{ EMPLOYEE_ASSIGNMENTS : "career_history"
     DEPARTMENTS ||--o{ EMPLOYEE_ASSIGNMENTS : "department_assignment"
     ROLES ||--o{ EMPLOYEE_ASSIGNMENTS : "role_assignment"
+    EMPLOYEES ||--o{ SALARY_RECORDS : "compensation_history"
+    EMPLOYEES ||--o{ ATTENDANCE : "attendance_logs"
 
     DEPARTMENTS {
         int id PK "Auto-increment ID"
@@ -45,12 +47,13 @@ erDiagram
         string first_name "First name"
         string last_name "Last name"
         string email UK "Corporate work email (@auraworkforce.io)"
+        string phone_number "Indian format corporate phone number"
         int department_id FK "References DEPARTMENTS(id)"
         int manager_id FK "Self-reference to EMPLOYEES(id)"
         numeric salary "Annual compensation in INR (CHECK > 0)"
         date hire_date "Date of joining"
         date exit_date "Optional exit / resignation date"
-        string work_location "City / Office (Pune, Coimbatore, etc.)"
+        string work_location "City / Office (Pune, Bangalore, etc.)"
         string employment_type "Permanent, Contract, etc."
         boolean is_active "Active employment status flag"
         timestamp created_at "Audit creation timestamp"
@@ -77,6 +80,31 @@ erDiagram
         int manager_id FK "References EMPLOYEES(id)"
         string change_reason "Joining, Promotion, Manager Change, etc."
     }
+
+    SALARY_RECORDS {
+        int id PK "Auto-increment ID"
+        int employee_id FK "References EMPLOYEES(id)"
+        string pay_period UK "Pay period (YYYY-MM)"
+        date effective_date "Payroll release date"
+        numeric base_salary "Fixed base salary (CHECK >= 0)"
+        numeric allowances "HRA and allowances (>= 0)"
+        numeric bonuses "Variable bonuses and overtime (>= 0)"
+        numeric deductions "Statutory deductions (>= 0)"
+        numeric net_salary "Net pay amount (CHECK >= 0)"
+        string currency "Currency code (default INR)"
+        string payment_status "PAID, PROCESSED, PENDING"
+    }
+
+    ATTENDANCE {
+        int id PK "Auto-increment ID"
+        int employee_id FK "References EMPLOYEES(id)"
+        date date UK "Date of attendance"
+        string status "PRESENT, REMOTE, PAID_LEAVE, UNPAID_LEAVE, HALF_DAY, ABSENT"
+        time check_in "Daily check-in timestamp"
+        time check_out "Daily check-out timestamp"
+        numeric hours_worked "Total hours logged"
+        string notes "WFH or Leave Code description"
+    }
 ```
 
 ---
@@ -93,23 +121,23 @@ erDiagram
 ### 3.2 Organizational Hierarchy (Self-Referential Manager Relationship)
 - `manager_id` is a nullable foreign key pointing to `employees.id` with `ON DELETE SET NULL`.
 - Top-level leadership (e.g. CEO) has `manager_id = NULL`.
-- An employee's direct reports can be loaded via `employee.direct_reports` while the reporting line is accessed via `employee.manager`.
+- Cycle detection is enforced at service layer preventing A -> B -> A or multi-level circular reporting trees.
 
 ### 3.3 Soft Delete Pattern (`is_active`)
 - Deleting an employee physically destroys historical audit trails for payroll, attendance, and compliance.
 - Records are preserved permanently; soft deletion toggles `is_active = FALSE`.
+- When a manager is soft-deleted, their direct reports are safely reassigned to their supervisor to prevent dangling trees.
 
 ### 3.4 Constraints and Performance Indexes
 - **Unique Constraints:**
   - `employees.email`: Enforces strict corporate email uniqueness.
+  - `employees.employee_code`: Guarantees unique business employee IDs.
   - `departments.name` & `departments.code`: Prevents duplicate departments.
   - `roles.title`: Prevents ambiguous duplicate job definitions.
   - `employee_roles(employee_id, role_id)`: Prevents assigning the same role twice to one person.
+  - `salary_records(employee_id, pay_period)`: Ensures idempotency per employee pay run.
+  - `attendance(employee_id, date)`: Prevents duplicate attendance logs for same date.
 - **Check Constraints:**
   - `ck_employees_salary_positive`: Guarantees `salary > 0`.
-- **Performance Indexes:**
-  - `ix_employees_email`: Instant authentication and search lookups.
-  - `ix_employees_name (last_name, first_name)`: Composite index for alphabetized roster queries.
-  - `ix_employees_department_id`: Speeds up department employee listings.
-  - `ix_employees_manager_id`: Fast manager-tree and direct-report traversals.
-  - `ix_employees_is_active`: Efficient filtering of currently active workforce.
+  - `ck_salary_base_positive`: Guarantees `base_salary >= 0`.
+  - `ck_salary_net_positive`: Guarantees `net_salary >= 0`.

@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Union
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ConfigDict
 
 from app.schemas.department import DepartmentBrief
@@ -24,10 +24,10 @@ class EmployeeBase(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=50)
     last_name: str = Field(..., min_length=1, max_length=50)
     email: EmailStr
-    department_id: Any
-    role_id: Optional[Any] = None
-    primary_role_id: Optional[Any] = None
-    manager_id: Optional[Any] = None
+    department_id: Union[int, str] = Field(..., description="Department database ID or Code")
+    role_id: Optional[Union[int, str]] = Field(None, description="Role database ID or Code")
+    primary_role_id: Optional[Union[int, str]] = Field(None, description="Alias for role_id")
+    manager_id: Optional[Union[int, str]] = Field(None, description="Manager database ID or Code")
     salary: Decimal = Field(..., gt=0)
     hire_date: date
     work_location: Optional[str] = Field(None, max_length=50)
@@ -65,9 +65,9 @@ class EmployeeUpdate(BaseModel):
     first_name: Optional[str] = Field(None, min_length=1, max_length=50)
     last_name: Optional[str] = Field(None, min_length=1, max_length=50)
     email: Optional[EmailStr] = None
-    department_id: Optional[int] = Field(None, gt=0)
-    role_id: Optional[int] = Field(None, gt=0)
-    manager_id: Optional[int] = None
+    department_id: Optional[Union[int, str]] = None
+    role_id: Optional[Union[int, str]] = None
+    manager_id: Optional[Union[int, str]] = None
     salary: Optional[Decimal] = Field(None, gt=0)
     hire_date: Optional[date] = None
     work_location: Optional[str] = Field(None, max_length=50)

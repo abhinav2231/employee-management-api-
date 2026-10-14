@@ -221,12 +221,83 @@ def test_patch_employee(client: TestClient, setup_dept_and_role, db: Session):
     data = res.json()
     assert data["first_name"] == "Dr. Margaret"
     assert float(data["salary"]) == 140000.00
-    assert data["last_name"] == "Hamilton"  # Unchanged
+    assert data["last_name"] == "Hamilton"
 
-    # Prevent self as manager
     res_self_mgr = client.patch(f"/api/v1/employees/{emp.id}", json={"manager_id": emp.id})
     assert res_self_mgr.status_code == 400
     assert res_self_mgr.json()["error_code"] == "BAD_REQUEST"
+
+
+def test_patch_manager_cycle_prevention(client: TestClient, setup_dept_and_role, db: Session):
+    dept, _ = setup_dept_and_role
+    emp_a = Employee(
+        first_name="Alice",
+        last_name="Manager",
+        email="alice.mgr@auraworkforce.io",
+        department_id=dept.id,
+        salary=Decimal("150000.00"),
+        hire_date=date(2021, 1, 1),
+    )
+    emp_b = Employee(
+        first_name="Bob",
+        last_name="Report",
+        email="bob.rep@auraworkforce.io",
+        department_id=dept.id,
+        salary=Decimal("120000.00"),
+        hire_date=date(2022, 1, 1),
+    )
+    db.add_all([emp_a, emp_b])
+    db.commit()
+    db.refresh(emp_a)
+    db.refresh(emp_b)
+
+    # Bob reports to Alice
+    client.patch(f"/api/v1/employees/{emp_b.id}", json={"manager_id": emp_a.id})
+
+    # Setting Alice's manager to Bob must fail with 400 circular hierarchy error
+    res_cycle = client.patch(f"/api/v1/employees/{emp_a.id}", json={"manager_id": emp_b.id})
+    assert res_cycle.status_code == 400
+    assert "circular" in res_cycle.json()["detail"].lower()
+
+
+def test_patch_clear_manager_and_update_location(client: TestClient, setup_dept_and_role, db: Session):
+    dept, _ = setup_dept_and_role
+    lead = Employee(
+        first_name="Lead",
+        last_name="Person",
+        email="lead.person@auraworkforce.io",
+        department_id=dept.id,
+        salary=Decimal("150000.00"),
+        hire_date=date(2021, 1, 1),
+    )
+    db.add(lead)
+    db.commit()
+    db.refresh(lead)
+
+    emp = Employee(
+        first_name="Staff",
+        last_name="Member",
+        email="staff.member@auraworkforce.io",
+        department_id=dept.id,
+        manager_id=lead.id,
+        salary=Decimal("90000.00"),
+        hire_date=date(2022, 1, 1),
+    )
+    db.add(emp)
+    db.commit()
+    db.refresh(emp)
+
+    # Update location & employment_type
+    res_update = client.patch(f"/api/v1/employees/{emp.id}", json={
+        "work_location": "Hyderabad",
+        "employment_type": "Contract",
+        "manager_id": None,
+    })
+    assert res_update.status_code == 200
+    data = res_update.json()
+    assert data["work_location"] == "Hyderabad"
+    assert data["employment_type"] == "Contract"
+    assert data["manager_id"] is None
 
 
 def test_delete_employee_soft_delete(client: TestClient, setup_dept_and_role, db: Session):

@@ -15,10 +15,10 @@
 | **GET** | `/health` | None | `200 OK` | Top-level system liveness & health check |
 | **GET** | `/api/v1/health` | None | `200 OK` | Versioned API health check |
 | **POST** | `/api/v1/employees` | `EmployeeCreate` (JSON) | `201 Created` | Create new employee with department & role |
-| **GET** | `/api/v1/employees` | Query params (`page`, `size`, `department`, `q`, `include_inactive`) | `200 OK` | List employees with pagination, filter & search |
-| **GET** | `/api/v1/employees/{id}` | None | `200 OK` | Retrieve single employee by ID |
-| **PATCH**| `/api/v1/employees/{id}` | `EmployeeUpdate` (JSON) | `200 OK` | Partial update of employee details |
-| **DELETE**| `/api/v1/employees/{id}` | None | `204 No Content` | Soft delete employee (`is_active = false`) |
+| **GET** | `/api/v1/employees` | Query params (`page`, `size`, `department`, `employee_code`, `q`, `include_inactive`) | `200 OK` | List employees with pagination, filter & search |
+| **GET** | `/api/v1/employees/{id}` | None | `200 OK` | Retrieve single employee by ID or Code |
+| **PATCH**| `/api/v1/employees/{id}` | `EmployeeUpdate` (JSON) | `200 OK` | Partial update of employee details (supports cycle prevention & manager clear) |
+| **DELETE**| `/api/v1/employees/{id}` | None | `204 No Content` | Soft delete employee (`is_active = false`), reassigns direct reports |
 | **GET** | `/api/v1/employees/{id}/team` | None | `200 OK` | Direct reports reporting to manager |
 | **GET** | `/api/v1/departments` | None | `200 OK` | List all 11 departments and active headcounts |
 | **GET** | `/api/v1/departments/{id}` | None | `200 OK` | Retrieve single department by ID |
@@ -32,124 +32,32 @@
 
 | Field | Type | Constraints | Description |
 | :--- | :--- | :--- | :--- |
-| `id` | `integer` | Read-only, auto-increment primary key | Unique employee identifier |
+| `id` | `integer` | Read-only, auto-increment primary key | Database internal identifier |
+| `employee_code` | `string` | Optional on create (auto-generated `EMP-xxxx`) | Business employee code |
 | `first_name` | `string` | Min: 1, Max: 50 | Employee legal first name |
 | `last_name` | `string` | Min: 1, Max: 50 | Employee legal last name |
 | `email` | `string (email)` | Unique, valid RFC 5322 email | Corporate email address |
-| `department` | `string` | Min: 1, Max: 50 | Department name (e.g. `Engineering`, `Product`) |
-| `role` | `string` | Min: 1, Max: 50 | Job title (e.g. `Software Engineer`) |
-| `salary` | `number (float)`| > 0 | Annual gross compensation |
-| `hire_date` | `string (date)` | Format: `YYYY-MM-DD` | Date of joining |
-| `is_active` | `boolean` | Default: `true` | Employment status flag |
+| `phone_number` | `string` | Indian phone format (`en_IN`) | Corporate contact phone number |
+| `department_id` | `integer or string` | Required (ID or Code e.g. `D01`) | Department foreign reference |
+| `role_id` | `integer or string` | Optional (ID or Code e.g. `R001`) | Primary role designation |
+| `manager_id` | `integer or string` | Optional (ID or Code e.g. `EMP-0006`) | Reporting manager reference |
+| `salary` | `number` | Required, `> 0` | Annual gross compensation (INR) |
+| `hire_date` | `string (date)` | Required, `YYYY-MM-DD`, non-future | Date of joining |
+| `exit_date` | `string (date)` | Optional, `YYYY-MM-DD` | Date of departure |
+| `work_location` | `string` | Optional, Max: 50 | Office city / base location |
+| `employment_type` | `string` | Optional, Max: 50 | Permanent, Contract, etc. |
+| `is_active` | `boolean` | Default: `true` | Active employment status flag |
 
 ---
 
-## 3. Detailed Request / Response Payloads
+## 3. Standard Error Envelope
 
-### 3.1 GET `/health` & GET `/api/v1/health`
-**Response (200 OK):**
-```json
-{
-  "status": "ok"
-}
-```
-
-### 3.2 GET `/api/v1/employees`
-**Query Parameters:**
-- `skip`: `int` (default: `0`, min: `0`)
-- `limit`: `int` (default: `20`, min: `1`, max: `100`)
-- `department`: `string` (optional filter)
-- `is_active`: `bool` (optional filter)
-
-**Response (200 OK):**
-```json
-[
-  {
-    "id": 1,
-    "first_name": "Alice",
-    "last_name": "Smith",
-    "email": "alice.smith@example.com",
-    "department": "Engineering",
-    "role": "Lead Backend Engineer",
-    "salary": 125000.0,
-    "hire_date": "2021-03-15",
-    "is_active": true
-  }
-]
-```
-
-### 3.3 POST `/api/v1/employees`
-**Request Body (`application/json`):**
-```json
-{
-  "first_name": "Jane",
-  "last_name": "Doe",
-  "email": "jane.doe@example.com",
-  "department": "Engineering",
-  "role": "Software Engineer",
-  "salary": 95000.0,
-  "hire_date": "2023-01-15",
-  "is_active": true
-}
-```
-
-**Response (201 Created):**
-```json
-{
-  "id": 11,
-  "first_name": "Jane",
-  "last_name": "Doe",
-  "email": "jane.doe@example.com",
-  "department": "Engineering",
-  "role": "Software Engineer",
-  "salary": 95000.0,
-  "hire_date": "2023-01-15",
-  "is_active": true
-}
-```
-
-### 3.4 GET `/api/v1/employees/{id}`
-**Response (200 OK):**
-```json
-{
-  "id": 1,
-  "first_name": "Alice",
-  "last_name": "Smith",
-  "email": "alice.smith@example.com",
-  "department": "Engineering",
-  "role": "Lead Backend Engineer",
-  "salary": 125000.0,
-  "hire_date": "2021-03-15",
-  "is_active": true
-}
-```
-
-**Response (404 Not Found):**
-```json
-{
-  "detail": "Employee with ID 999 not found"
-}
-```
-
----
-
-## 4. Standard Error Structure (FastAPI / RFC 7807 compatible)
+All API errors return a uniform JSON format:
 
 ```json
 {
-  "detail": "Descriptive error message"
-}
-```
-
-For validation errors (`422 Unprocessable Entity`):
-```json
-{
-  "detail": [
-    {
-      "loc": ["body", "email"],
-      "msg": "value is not a valid email address",
-      "type": "value_error"
-    }
-  ]
+  "detail": "Description of the error",
+  "error_code": "NOT_FOUND | CONFLICT | BAD_REQUEST | VALIDATION_ERROR | INTERNAL_SERVER_ERROR",
+  "field": "optional_field_name"
 }
 ```

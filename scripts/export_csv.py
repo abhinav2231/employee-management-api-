@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+from typing import Optional, Dict, Any
 import pandas as pd
 from sqlalchemy.orm import Session
 
@@ -22,17 +23,19 @@ EXPORTS_DIR = os.path.join(
 )
 
 
-def export_database_to_csv(output_dir: str = EXPORTS_DIR) -> dict:
+def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] = None) -> Dict[str, Any]:
     os.makedirs(output_dir, exist_ok=True)
-    db: Session = SessionLocal()
+    close_session = False
+    if db is None:
+        db = SessionLocal()
+        close_session = True
 
     try:
-        employees = db.query(Employee).order_by(Employee.id).all()
+        employees = db.query(Employee).order_by(Employee.employee_code.asc()).all()
         emp_rows = []
         for e in employees:
             primary_role = next((er.role.title for er in e.employee_roles if er.is_primary and er.role), None)
             emp_rows.append({
-                "id": e.id,
                 "employee_code": e.employee_code,
                 "first_name": e.first_name,
                 "last_name": e.last_name,
@@ -41,7 +44,7 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR) -> dict:
                 "department_code": e.department.code if e.department else None,
                 "department_name": e.department.name if e.department else None,
                 "role_title": primary_role,
-                "manager_id": e.manager_id,
+                "manager_code": e.manager.employee_code if e.manager else None,
                 "manager_name": f"{e.manager.first_name} {e.manager.last_name}" if e.manager else None,
                 "salary": float(e.salary),
                 "hire_date": e.hire_date.isoformat() if e.hire_date else None,
@@ -55,12 +58,10 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR) -> dict:
         emp_path = os.path.join(output_dir, "employees.csv")
         emp_df.to_csv(emp_path, index=False, encoding="utf-8", lineterminator="\n")
 
-        salaries = db.query(SalaryRecord).order_by(SalaryRecord.employee_id, SalaryRecord.pay_period).all()
+        salaries = db.query(SalaryRecord).join(SalaryRecord.employee).order_by(Employee.employee_code.asc(), SalaryRecord.pay_period.asc()).all()
         sal_rows = []
         for s in salaries:
             sal_rows.append({
-                "id": s.id,
-                "employee_id": s.employee_id,
                 "employee_code": s.employee.employee_code if s.employee else None,
                 "employee_name": f"{s.employee.first_name} {s.employee.last_name}" if s.employee else None,
                 "pay_period": s.pay_period,
@@ -78,12 +79,10 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR) -> dict:
         sal_path = os.path.join(output_dir, "salaries.csv")
         sal_df.to_csv(sal_path, index=False, encoding="utf-8", lineterminator="\n")
 
-        attendance = db.query(Attendance).order_by(Attendance.employee_id, Attendance.date).all()
+        attendance = db.query(Attendance).join(Attendance.employee).order_by(Employee.employee_code.asc(), Attendance.date.asc()).all()
         att_rows = []
         for a in attendance:
             att_rows.append({
-                "id": a.id,
-                "employee_id": a.employee_id,
                 "employee_code": a.employee.employee_code if a.employee else None,
                 "date": a.date.isoformat() if a.date else None,
                 "status": a.status,
@@ -106,7 +105,8 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR) -> dict:
             "attendance_count": len(att_df),
         }
     finally:
-        db.close()
+        if close_session:
+            db.close()
 
 
 if __name__ == "__main__":

@@ -1,10 +1,12 @@
 import math
 from typing import List
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.exceptions import NotFoundException
 from app.models.department import Department
 from app.models.employee import Employee
+from app.models.role import EmployeeRole
 from app.schemas.department import DepartmentResponse
 from app.schemas.employee import EmployeeResponse
 from app.schemas.common import PaginatedResponse
@@ -15,22 +17,26 @@ class DepartmentService:
     @staticmethod
     def list_departments(db: Session) -> List[DepartmentResponse]:
         departments = db.query(Department).order_by(Department.name.asc()).all()
-        results: List[DepartmentResponse] = []
 
-        for d in departments:
-            active_count = sum(1 for e in d.employees if e.is_active)
-            results.append(
-                DepartmentResponse(
-                    id=d.id,
-                    name=d.name,
-                    code=d.code,
-                    cost_center=d.cost_center,
-                    description=d.description,
-                    is_active=d.is_active,
-                    employee_count=active_count,
-                )
+        active_counts = dict(
+            db.query(Employee.department_id, func.count(Employee.id))
+            .filter(Employee.is_active.is_(True))
+            .group_by(Employee.department_id)
+            .all()
+        )
+
+        return [
+            DepartmentResponse(
+                id=d.id,
+                name=d.name,
+                code=d.code,
+                cost_center=d.cost_center,
+                description=d.description,
+                is_active=d.is_active,
+                employee_count=active_counts.get(d.id, 0),
             )
-        return results
+            for d in departments
+        ]
 
     @staticmethod
     def get_department(db: Session, department_id: int) -> Department:
@@ -42,7 +48,12 @@ class DepartmentService:
     @staticmethod
     def get_department_details(db: Session, department_id: int) -> DepartmentResponse:
         dept = DepartmentService.get_department(db, department_id)
-        active_count = sum(1 for e in dept.employees if e.is_active)
+        active_count = (
+            db.query(func.count(Employee.id))
+            .filter(Employee.department_id == department_id, Employee.is_active.is_(True))
+            .scalar()
+            or 0
+        )
         return DepartmentResponse(
             id=dept.id,
             name=dept.name,
@@ -62,10 +73,19 @@ class DepartmentService:
     ) -> PaginatedResponse[EmployeeResponse]:
         DepartmentService.get_department(db, department_id)
 
-        query = db.query(Employee).filter(
-            Employee.department_id == department_id,
-            Employee.is_active.is_(True),
-        ).order_by(Employee.last_name.asc(), Employee.first_name.asc())
+        query = (
+            db.query(Employee)
+            .options(
+                joinedload(Employee.department),
+                joinedload(Employee.manager),
+                selectinload(Employee.employee_roles).joinedload(EmployeeRole.role),
+            )
+            .filter(
+                Employee.department_id == department_id,
+                Employee.is_active.is_(True),
+            )
+            .order_by(Employee.last_name.asc(), Employee.first_name.asc())
+        )
 
         total = query.count()
         pages = math.ceil(total / size) if total > 0 else 0

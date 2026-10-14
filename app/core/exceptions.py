@@ -104,3 +104,14 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "field": str(field_name) if field_name else None,
             },
         )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "detail": "An internal server error occurred.",
+                "error_code": "INTERNAL_SERVER_ERROR",
+                "field": None,
+            },
+        )

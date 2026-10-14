@@ -13,18 +13,12 @@ Faker.seed(RANDOM_SEED)
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 
-fake = Faker()
+fake = Faker("en_IN")
 
 MASTER_DATASET_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "data",
     "01_LedgerForge_Python_Master_Dataset.xlsx",
-)
-
-EXPORTS_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "exports",
 )
 
 
@@ -146,7 +140,8 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
 
     df_pi = xl.parse("payroll_items")
     salaries = []
-    min_pay_date = pd.to_datetime("2026-01-01")
+    max_pay_date = pd.to_datetime(df_pi["period_start"]).max()
+    min_pay_date = max_pay_date - pd.DateOffset(months=9) if pd.notna(max_pay_date) else pd.to_datetime("2026-01-01")
     df_pi_filtered = df_pi[df_pi["period_start"] >= min_pay_date]
     if len(df_pi_filtered) == 0:
         df_pi_filtered = df_pi
@@ -182,7 +177,8 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
         })
 
     df_att = xl.parse("attendance")
-    min_att_date = pd.to_datetime("2026-06-01")
+    max_att_date = pd.to_datetime(df_att["attendance_date"]).max()
+    min_att_date = max_att_date - pd.DateOffset(months=recent_attendance_months) if pd.notna(max_att_date) else pd.to_datetime("2026-06-01")
     df_att_recent = df_att[df_att["attendance_date"] >= min_att_date]
     if len(df_att_recent) == 0:
         df_att_recent = df_att.tail(20000)
@@ -192,17 +188,20 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
         emp_code = str(row["employee_id"]).strip()
         att_date = pd.to_datetime(row["attendance_date"]).date()
         raw_status = str(row.get("status", "PRESENT")).strip().upper()
+        leave_code = str(row.get("leave_type_code", "")).strip().upper()
 
         if "PRESENT" in raw_status:
             status = "PRESENT"
         elif "WFH" in raw_status or "REMOTE" in raw_status:
             status = "REMOTE"
-        elif "LEAVE" in raw_status:
-            status = "ON_LEAVE"
         elif "HALF" in raw_status:
             status = "HALF_DAY"
         elif "ABSENT" in raw_status:
             status = "ABSENT"
+        elif leave_code in ["LWP", "LOP"] or "UNPAID" in raw_status:
+            status = "UNPAID_LEAVE"
+        elif leave_code or "LEAVE" in raw_status:
+            status = "PAID_LEAVE"
         else:
             status = "PRESENT"
 
@@ -212,8 +211,8 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
         hours_worked = Decimal(str(round(float(hours_raw), 2))) if pd.notna(hours_raw) else None
 
         notes = None
-        if pd.notna(row.get("leave_type_code")):
-            notes = f"Leave Code: {row.get('leave_type_code')}"
+        if leave_code:
+            notes = f"Leave Code: {leave_code}"
         elif status == "REMOTE":
             notes = "Work From Home"
 
@@ -233,26 +232,4 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
         "employees": employees,
         "salaries": salaries,
         "attendance": attendance,
-    }
-
-
-def export_dataset_to_csv(data: Dict[str, Any], output_dir: str = EXPORTS_DIR) -> Dict[str, str]:
-    os.makedirs(output_dir, exist_ok=True)
-
-    emp_df = pd.DataFrame(data["employees"])
-    emp_path = os.path.join(output_dir, "employees.csv")
-    emp_df.to_csv(emp_path, index=False, encoding="utf-8", lineterminator="\n")
-
-    sal_df = pd.DataFrame(data["salaries"])
-    sal_path = os.path.join(output_dir, "salaries.csv")
-    sal_df.to_csv(sal_path, index=False, encoding="utf-8", lineterminator="\n")
-
-    att_df = pd.DataFrame(data["attendance"])
-    att_path = os.path.join(output_dir, "attendance.csv")
-    att_df.to_csv(att_path, index=False, encoding="utf-8", lineterminator="\n")
-
-    return {
-        "employees_csv": emp_path,
-        "salaries_csv": sal_path,
-        "attendance_csv": att_path,
     }

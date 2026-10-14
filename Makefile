@@ -1,9 +1,12 @@
-.PHONY: seed export test run
+.PHONY: migrate seed seed-reset export test run
 
-seed:
+migrate:
+	alembic upgrade head
+
+seed: migrate
 	python -m scripts.seed
 
-seed-reset:
+seed-reset: migrate
 	python -m scripts.seed --reset
 
 export:
@@ -12,5 +15,5 @@ export:
 test:
 	pytest -v
 
-run:
+run: migrate
 	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
@@ -17,10 +17,8 @@ from app.models.role import Role, EmployeeRole
 from app.models.employee import Employee
 from app.models.attendance import Attendance
 from app.models.salary import SalaryRecord
-from scripts.data_pipeline import (
-    load_and_clean_master_dataset,
-    export_dataset_to_csv,
-)
+from scripts.data_pipeline import load_and_clean_master_dataset
+from scripts.export_csv import export_database_to_csv
 
 engine.echo = False
 
@@ -107,8 +105,11 @@ def seed_roles(
     return role_code_to_id
 
 
-def seed_database(reset: bool = False) -> Dict[str, Any]:
-    db: Session = SessionLocal()
+def seed_database(reset: bool = False, db: Optional[Session] = None) -> Dict[str, Any]:
+    close_session = False
+    if db is None:
+        db = SessionLocal()
+        close_session = True
 
     try:
         if reset:
@@ -294,7 +295,7 @@ def seed_database(reset: bool = False) -> Dict[str, Any]:
             db.bulk_save_objects(to_insert_att)
             db.commit()
 
-        export_files = export_dataset_to_csv(dataset)
+        export_files = export_database_to_csv(db=db)
 
         return {
             "departments_total": len(dept_code_to_id),
@@ -311,7 +312,8 @@ def seed_database(reset: bool = False) -> Dict[str, Any]:
         db.rollback()
         raise exc
     finally:
-        db.close()
+        if close_session:
+            db.close()
 
 
 def main():
