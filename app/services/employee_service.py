@@ -153,7 +153,11 @@ class EmployeeService:
             salary=employee_in.salary,
             hire_date=employee_in.hire_date,
             work_location=employee_in.work_location,
+            work_mode=employee_in.work_mode,
             employment_type=employee_in.employment_type,
+            employment_status=employee_in.employment_status or ("Active" if employee_in.is_active else "Resigned"),
+            exit_type=employee_in.exit_type,
+            exit_reason=employee_in.exit_reason,
             is_active=employee_in.is_active,
         )
         db.add(employee)
@@ -324,13 +328,49 @@ class EmployeeService:
             employee.hire_date = update_data["hire_date"]
         if "work_location" in update_data:
             employee.work_location = update_data["work_location"]
+        if "work_mode" in update_data:
+            employee.work_mode = update_data["work_mode"]
         if "employment_type" in update_data:
             employee.employment_type = update_data["employment_type"]
-        if "is_active" in update_data and update_data["is_active"] is not None:
-            employee.is_active = update_data["is_active"]
-            if not employee.is_active and not employee.exit_date:
+        if "exit_type" in update_data:
+            employee.exit_type = update_data["exit_type"]
+        if "exit_reason" in update_data:
+            employee.exit_reason = update_data["exit_reason"]
+
+        if "employment_status" in update_data and update_data["employment_status"] is not None:
+            new_status = str(update_data["employment_status"]).strip()
+            employee.employment_status = new_status
+            if new_status.lower() == "active":
+                employee.is_active = True
+                employee.exit_date = None
+                employee.exit_type = None
+                employee.exit_reason = None
+            elif new_status.lower() in ["resigned", "terminated", "contract ended"]:
                 from datetime import date
-                employee.exit_date = date.today()
+                employee.is_active = False
+                if not employee.exit_date:
+                    employee.exit_date = date.today()
+                if not employee.exit_type:
+                    employee.exit_type = "Involuntary" if new_status.lower() == "terminated" else "Voluntary"
+
+        if "is_active" in update_data and update_data["is_active"] is not None:
+            new_active = bool(update_data["is_active"])
+            employee.is_active = new_active
+            if new_active:
+                employee.exit_date = None
+                employee.employment_status = "Active"
+                employee.exit_type = None
+                employee.exit_reason = None
+            else:
+                from datetime import date
+                if not employee.exit_date:
+                    employee.exit_date = date.today()
+                if not employee.employment_status or employee.employment_status.lower() == "active":
+                    employee.employment_status = "Resigned"
+                if not employee.exit_type:
+                    employee.exit_type = "Voluntary"
+                if not employee.exit_reason:
+                    employee.exit_reason = "Deactivated via Management API"
 
         try:
             db.commit()
@@ -350,10 +390,16 @@ class EmployeeService:
         for report in employee.direct_reports:
             report.manager_id = employee.manager_id
 
+        from datetime import date
         employee.is_active = False
         if not employee.exit_date:
-            from datetime import date
             employee.exit_date = date.today()
+        if not employee.employment_status or employee.employment_status.lower() == "active":
+            employee.employment_status = "Resigned"
+        if not employee.exit_type:
+            employee.exit_type = "Voluntary"
+        if not employee.exit_reason:
+            employee.exit_reason = "Deactivated via Management API"
         db.commit()
 
     @staticmethod
@@ -421,7 +467,11 @@ class EmployeeService:
             salary=e.salary,
             hire_date=e.hire_date,
             exit_date=e.exit_date,
+            employment_status=e.employment_status,
+            exit_type=e.exit_type,
+            exit_reason=e.exit_reason,
             work_location=e.work_location,
+            work_mode=e.work_mode,
             employment_type=e.employment_type,
             is_active=e.is_active,
             roles=roles_brief,

@@ -44,10 +44,13 @@ jobs:
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "CREATE DATABASE aura_workforce_test_db;"
 
-      - name: Run Database Migrations
+      - name: Validate Alembic Migrations
         env:
           DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/aura_workforce_db
         run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
           alembic upgrade head
 
       - name: Run Master Dataset Seeder

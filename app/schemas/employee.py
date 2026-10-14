@@ -31,7 +31,11 @@ class EmployeeBase(BaseModel):
     salary: Decimal = Field(..., gt=0)
     hire_date: date
     work_location: Optional[str] = Field(None, max_length=50)
+    work_mode: Optional[str] = Field(None, max_length=50)
     employment_type: Optional[str] = Field(None, max_length=50)
+    employment_status: Optional[str] = Field(None, max_length=50)
+    exit_type: Optional[str] = Field(None, max_length=50)
+    exit_reason: Optional[str] = Field(None, max_length=255)
 
     @model_validator(mode="before")
     @classmethod
@@ -71,7 +75,11 @@ class EmployeeUpdate(BaseModel):
     salary: Optional[Decimal] = Field(None, gt=0)
     hire_date: Optional[date] = None
     work_location: Optional[str] = Field(None, max_length=50)
+    work_mode: Optional[str] = Field(None, max_length=50)
     employment_type: Optional[str] = Field(None, max_length=50)
+    employment_status: Optional[str] = Field(None, max_length=50)
+    exit_type: Optional[str] = Field(None, max_length=50)
+    exit_reason: Optional[str] = Field(None, max_length=255)
     is_active: Optional[bool] = None
 
     @field_validator("first_name", "last_name")
@@ -105,7 +113,11 @@ class EmployeeResponse(BaseModel):
     salary: Decimal
     hire_date: date
     exit_date: Optional[date] = None
+    employment_status: Optional[str] = None
+    exit_type: Optional[str] = None
+    exit_reason: Optional[str] = None
     work_location: Optional[str] = None
+    work_mode: Optional[str] = None
     employment_type: Optional[str] = None
     is_active: bool
     roles: List[RoleBrief] = Field(default_factory=list)

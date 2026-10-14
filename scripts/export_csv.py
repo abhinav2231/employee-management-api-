@@ -60,11 +60,16 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] 
                 "hire_date": e.hire_date.isoformat() if e.hire_date else None,
                 "exit_date": e.exit_date.isoformat() if e.exit_date else None,
                 "work_location": e.work_location,
+                "work_mode": e.work_mode,
                 "employment_type": e.employment_type,
+                "employment_status": e.employment_status,
+                "exit_type": e.exit_type,
+                "exit_reason": e.exit_reason,
                 "is_active": e.is_active,
             })
 
         emp_df = pd.DataFrame(emp_rows)
+        emp_df["phone_number"] = emp_df["phone_number"].astype(str)
         emp_path = os.path.join(output_dir, "employees.csv")
         emp_df.to_csv(emp_path, index=False, encoding="utf-8", lineterminator="\n")
 

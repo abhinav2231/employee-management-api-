@@ -27,8 +27,9 @@ def ensure_test_database_exists():
             res = conn.execute(check_sql).scalar()
             if not res:
                 conn.execute(text("CREATE DATABASE aura_workforce_test_db"))
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Could not verify/create test database via admin connection: %s", exc)
     finally:
         admin_engine.dispose()
 
@@ -36,6 +37,12 @@ def ensure_test_database_exists():
 ensure_test_database_exists()
 
 test_engine = create_engine(TEST_DB_URI, pool_pre_ping=True)
+db_name = test_engine.url.database or ""
+assert "test" in db_name.lower(), (
+    f"CRITICAL TEST DATABASE SAFETY GUARD: Refusing to drop/create tables on '{db_name}'. "
+    f"The test database name must contain 'test' to prevent wiping development or production databases."
+)
+
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 

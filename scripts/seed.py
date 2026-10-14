@@ -450,6 +450,8 @@ def main():
             if confirm != "y":
                 print("[INFO] Seeding aborted by user.")
                 sys.exit(0)
+        else:
+            sys.exit("[ERROR] Running --reset in a non-interactive environment (e.g. CI, piped stdin, Docker) requires the explicit --force flag.")
 
     seed_database(reset=args.reset)
 

@@ -42,7 +42,11 @@ class EmployeeAssignment(Base, TimestampMixin):
     )
     change_reason: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
-    employee: Mapped["Employee"] = relationship("Employee", foreign_keys=[employee_id])
+    employee: Mapped["Employee"] = relationship(
+        "Employee",
+        back_populates="assignments",
+        foreign_keys=[employee_id],
+    )
     department: Mapped[Optional["Department"]] = relationship("Department")
     role: Mapped[Optional["Role"]] = relationship("Role")
 

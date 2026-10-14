@@ -52,6 +52,13 @@ def parse_date_val(val: Any) -> Optional[date]:
         return None
 
 
+def generate_indian_mobile(seed_num: int) -> str:
+    rng = random.Random(seed_num)
+    first_digit = rng.choice(["6", "7", "8", "9"])
+    remaining_digits = "".join(rng.choices("0123456789", k=9))
+    return f"+91{first_digit}{remaining_digits}"
+
+
 def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str, Any]:
     if not os.path.exists(MASTER_DATASET_PATH):
         raise FileNotFoundError(f"Master dataset file not found at: {MASTER_DATASET_PATH}")
@@ -110,7 +117,7 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
             email = base_email
         used_emails.add(email)
 
-        phone_number = fake.phone_number()
+        phone_number = generate_indian_mobile(42000 + idx)
         hire_date = parse_date_val(row.get("hire_date"))
         exit_date = parse_date_val(row.get("exit_date"))
         dob = parse_date_val(row.get("date_of_birth"))
@@ -210,11 +217,18 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
     if len(df_pi_filtered) == 0:
         df_pi_filtered = df_pi
 
+    exit_date_map = {e["employee_code"]: e["exit_date"] for e in employees if e.get("exit_date")}
+
     for _, row in df_pi_filtered.iterrows():
         emp_code = str(row["employee_id"]).strip()
         period_start = pd.to_datetime(row["period_start"])
         period_end = pd.to_datetime(row["period_end"])
         pay_period = period_start.strftime("%Y-%m")
+
+        emp_exit = exit_date_map.get(emp_code)
+        eff_date = period_end.date()
+        if emp_exit and period_start.date() <= emp_exit < period_end.date():
+            eff_date = emp_exit
 
         basic = float(row.get("basic", 0.0))
         allowances = float(
@@ -230,7 +244,7 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
         salaries.append({
             "employee_code": emp_code,
             "pay_period": pay_period,
-            "effective_date": period_end.date(),
+            "effective_date": eff_date,
             "base_salary": round(Decimal(str(basic)), 2),
             "allowances": round(Decimal(str(allowances)), 2),
             "bonuses": round(Decimal(str(bonuses)), 2),

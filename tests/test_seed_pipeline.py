@@ -5,6 +5,8 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models.employee import Employee
+from app.models.assignment import EmployeeAssignment
+from app.models.salary_revision import SalaryRevision
 from scripts.data_pipeline import load_and_clean_master_dataset
 from scripts.seed import seed_database
 from scripts.export_csv import export_database_to_csv
@@ -27,6 +29,8 @@ def test_master_dataset_cleaning(master_dataset):
     for emp in master_dataset["employees"]:
         assert "@auraworkforce.io" in emp["email"]
         assert emp["phone_number"] is not None
+        assert emp["phone_number"].startswith("+91")
+        assert len(emp["phone_number"]) == 13
         assert emp["salary"] > 0
         assert emp["employment_status"] is not None
         assert emp["work_mode"] in ["Hybrid", "Remote", "Onsite"]
@@ -87,13 +91,18 @@ def test_linked_relational_integrity(master_dataset):
 def test_idempotent_seeding(db: Session):
     summary1 = seed_database(reset=False, db=db, do_export=False)
     emp_count_run1 = db.query(Employee).count()
+    asg_count_run1 = db.query(EmployeeAssignment).count()
+    rev_count_run1 = db.query(SalaryRevision).count()
 
     summary2 = seed_database(reset=False, db=db, do_export=False)
     emp_count_run2 = db.query(Employee).count()
+    asg_count_run2 = db.query(EmployeeAssignment).count()
+    rev_count_run2 = db.query(SalaryRevision).count()
 
-    assert emp_count_run1 == emp_count_run2
+    assert emp_count_run1 == emp_count_run2 == 745
+    assert asg_count_run1 == asg_count_run2 == 1606
+    assert rev_count_run1 == rev_count_run2 == 2459
     assert summary2["employees_inserted"] == 0
-    assert emp_count_run1 == 745
 
 
 def test_csv_exports_valid(db: Session, tmp_path):

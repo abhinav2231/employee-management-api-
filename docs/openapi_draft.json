@@ -768,6 +768,18 @@
             ],
             "title": "Work Location"
           },
+          "work_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Mode"
+          },
           "employment_type": {
             "anyOf": [
               {
@@ -779,6 +791,42 @@
               }
             ],
             "title": "Employment Type"
+          },
+          "employment_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employment Status"
+          },
+          "exit_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Type"
+          },
+          "exit_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Reason"
           },
           "is_active": {
             "type": "boolean",
@@ -883,6 +931,39 @@
             ],
             "title": "Exit Date"
           },
+          "employment_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employment Status"
+          },
+          "exit_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Type"
+          },
+          "exit_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Reason"
+          },
           "work_location": {
             "anyOf": [
               {
@@ -893,6 +974,17 @@
               }
             ],
             "title": "Work Location"
+          },
+          "work_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Mode"
           },
           "employment_type": {
             "anyOf": [
@@ -1063,6 +1155,18 @@
             ],
             "title": "Work Location"
           },
+          "work_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Mode"
+          },
           "employment_type": {
             "anyOf": [
               {
@@ -1074,6 +1178,42 @@
               }
             ],
             "title": "Employment Type"
+          },
+          "employment_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employment Status"
+          },
+          "exit_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Type"
+          },
+          "exit_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Reason"
           },
           "is_active": {
             "anyOf": [
