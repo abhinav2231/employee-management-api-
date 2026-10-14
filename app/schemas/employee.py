@@ -27,7 +27,11 @@ class EmployeeBase(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=50)
     last_name: str = Field(..., min_length=1, max_length=50)
     email: EmailStr
-    phone_number: Optional[str] = Field(None, max_length=30)
+    phone_number: Optional[str] = Field(
+        None,
+        pattern=r"^\+91[6-9]\d{9}$",
+        description="Indian mobile phone number in +91[6-9]XXXXXXXXX format",
+    )
     department_id: Union[int, str] = Field(..., description="Department database ID or Code")
     role_id: Optional[Union[int, str]] = Field(None, description="Role database ID or Code")
     primary_role_id: Optional[Union[int, str]] = Field(None, description="Alias for role_id")
@@ -84,7 +88,11 @@ class EmployeeUpdate(BaseModel):
     first_name: Optional[str] = Field(None, min_length=1, max_length=50)
     last_name: Optional[str] = Field(None, min_length=1, max_length=50)
     email: Optional[EmailStr] = None
-    phone_number: Optional[str] = Field(None, max_length=30)
+    phone_number: Optional[str] = Field(
+        None,
+        pattern=r"^\+91[6-9]\d{9}$",
+        description="Indian mobile phone number in +91[6-9]XXXXXXXXX format",
+    )
     department_id: Optional[Union[int, str]] = None
     role_id: Optional[Union[int, str]] = None
     manager_id: Optional[Union[int, str]] = None

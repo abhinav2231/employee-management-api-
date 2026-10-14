@@ -305,7 +305,7 @@ docker compose exec api python -m scripts.seed
 
 # 6. Run automated test suite inside Docker
 docker compose exec api pytest -v
-# Output: 55 passed in 134.81s (0:02:14)
+# Output: 62 passed in 135.38s (0:02:15)
 ```
 
 ---

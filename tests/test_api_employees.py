@@ -595,3 +595,59 @@ def test_patch_employee_phone_number(client, setup_dept_and_role, db):
     assert get_res.json()["phone_number"] == "+919999999999"
 
 
+def test_create_employee_in_inactive_department_fails(client: TestClient, db: Session):
+    inactive_dept = Department(name="Retired Department", code="RET", is_active=False)
+    db.add(inactive_dept)
+    db.commit()
+
+    payload = {
+        "first_name": "New",
+        "last_name": "Hire",
+        "email": "new.hire@auraworkforce.io",
+        "department_id": inactive_dept.id,
+        "salary": 90000,
+        "hire_date": "2024-01-01",
+    }
+    r = client.post("/api/v1/employees", json=payload)
+    assert r.status_code == 400
+    assert "inactive" in r.json()["detail"].lower()
+
+
+def test_patch_employee_to_inactive_department_fails(client: TestClient, setup_dept_and_role, db: Session):
+    active_dept, _ = setup_dept_and_role
+    inactive_dept = Department(name="Closed Branch", code="CLS", is_active=False)
+    db.add(inactive_dept)
+    db.commit()
+
+    e = _emp(db, active_dept, "transfer_test@auraworkforce.io")
+    r = client.patch(f"/api/v1/employees/{e.id}", json={"department_id": inactive_dept.id})
+    assert r.status_code == 400
+    assert "inactive" in r.json()["detail"].lower()
+
+
+def test_employee_invalid_phone_number_format_rejected(client: TestClient, setup_dept_and_role, db: Session):
+    dept, _ = setup_dept_and_role
+    base_payload = {
+        "first_name": "Phone",
+        "last_name": "Tester",
+        "email": "phone.tester@auraworkforce.io",
+        "department_id": dept.id,
+        "salary": 80000,
+        "hire_date": "2024-01-01",
+    }
+
+    # Missing +91
+    r1 = client.post("/api/v1/employees", json={**base_payload, "phone_number": "9876543210"})
+    assert r1.status_code == 422
+
+    # First digit after +91 is 5 (must be 6-9)
+    r2 = client.post("/api/v1/employees", json={**base_payload, "phone_number": "+915876543210"})
+    assert r2.status_code == 422
+
+    # Patch with invalid phone
+    e = _emp(db, dept, "phone_patch_inv@auraworkforce.io")
+    r3 = client.patch(f"/api/v1/employees/{e.id}", json={"phone_number": "invalid-phone"})
+    assert r3.status_code == 422
+
+
+

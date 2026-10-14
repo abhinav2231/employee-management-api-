@@ -1,12 +1,14 @@
 import math
 from typing import List
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.exceptions import NotFoundException, ConflictException, BadRequestException
 from app.models.department import Department
 from app.models.employee import Employee
-from app.models.role import EmployeeRole
+from app.models.role import Role, EmployeeRole
+from app.models.assignment import EmployeeAssignment
 from app.schemas.department import DepartmentResponse, DepartmentCreate, DepartmentUpdate
 from app.schemas.employee import EmployeeResponse
 from app.schemas.common import PaginatedResponse
@@ -66,27 +68,32 @@ class DepartmentService:
 
     @staticmethod
     def create_department(db: Session, dept_in: DepartmentCreate) -> DepartmentResponse:
-        code_clean = dept_in.code.strip().upper()
+        code_clean = dept_in.code.strip()
         name_clean = dept_in.name.strip()
 
-        existing_code = db.query(Department).filter(Department.code.ilike(code_clean)).first()
+        existing_code = db.query(Department).filter(func.lower(Department.code) == code_clean.lower()).first()
         if existing_code:
             raise ConflictException(f"Department with code '{code_clean}' already exists", field="code")
 
-        existing_name = db.query(Department).filter(Department.name.ilike(name_clean)).first()
+        existing_name = db.query(Department).filter(func.lower(Department.name) == name_clean.lower()).first()
         if existing_name:
             raise ConflictException(f"Department with name '{name_clean}' already exists", field="name")
 
         dept = Department(
             name=name_clean,
-            code=code_clean,
+            code=code_clean.upper(),
             cost_center=dept_in.cost_center,
             description=dept_in.description,
             is_active=dept_in.is_active,
         )
-        db.add(dept)
-        db.commit()
-        db.refresh(dept)
+        try:
+            db.add(dept)
+            db.commit()
+            db.refresh(dept)
+        except IntegrityError:
+            db.rollback()
+            raise ConflictException("Department with this code or name already exists")
+
         return DepartmentResponse(
             id=dept.id,
             name=dept.name,
@@ -103,21 +110,21 @@ class DepartmentService:
         update_data = dept_in.model_dump(exclude_unset=True)
 
         if "code" in update_data and update_data["code"] is not None:
-            code_clean = update_data["code"].strip().upper()
-            if code_clean != dept.code:
+            code_clean = update_data["code"].strip()
+            if code_clean.lower() != dept.code.lower():
                 existing = db.query(Department).filter(
-                    Department.code.ilike(code_clean),
+                    func.lower(Department.code) == code_clean.lower(),
                     Department.id != dept.id,
                 ).first()
                 if existing:
                     raise ConflictException(f"Department with code '{code_clean}' already exists", field="code")
-                dept.code = code_clean
+                dept.code = code_clean.upper()
 
         if "name" in update_data and update_data["name"] is not None:
             name_clean = update_data["name"].strip()
-            if name_clean != dept.name:
+            if name_clean.lower() != dept.name.lower():
                 existing = db.query(Department).filter(
-                    Department.name.ilike(name_clean),
+                    func.lower(Department.name) == name_clean.lower(),
                     Department.id != dept.id,
                 ).first()
                 if existing:
@@ -131,8 +138,12 @@ class DepartmentService:
         if "is_active" in update_data and update_data["is_active"] is not None:
             dept.is_active = update_data["is_active"]
 
-        db.commit()
-        db.refresh(dept)
+        try:
+            db.commit()
+            db.refresh(dept)
+        except IntegrityError:
+            db.rollback()
+            raise ConflictException("Department with this code or name already exists")
 
         active_count = (
             db.query(func.count(Employee.id))
@@ -165,12 +176,11 @@ class DepartmentService:
                 field="department_id",
             )
 
-        total_employees = (
-            db.query(Employee)
-            .filter(Employee.department_id == department_id)
-            .count()
-        )
-        if total_employees > 0:
+        roles_count = db.query(Role).filter(Role.department_id == department_id).count()
+        total_employees = db.query(Employee).filter(Employee.department_id == department_id).count()
+        assignments_count = db.query(EmployeeAssignment).filter(EmployeeAssignment.department_id == department_id).count()
+
+        if total_employees > 0 or roles_count > 0 or assignments_count > 0:
             dept.is_active = False
             db.commit()
         else:

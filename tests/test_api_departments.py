@@ -236,3 +236,62 @@ def test_delete_empty_department_success(client: TestClient, db: Session):
     assert r.status_code == 204
     assert client.get(f"/api/v1/departments/{dept.id}").status_code == 404
 
+
+def test_delete_department_soft_deactivates_when_inactive_employees_exist(client: TestClient, db: Session):
+    dept = Department(name="Legacy Archives", code="LGC", is_active=True)
+    db.add(dept)
+    db.commit()
+
+    e = Employee(
+        first_name="Former",
+        last_name="Staff",
+        email="former.staff@auraworkforce.io",
+        department_id=dept.id,
+        salary=Decimal("50000"),
+        hire_date=date(2020, 1, 1),
+        is_active=False,
+    )
+    db.add(e)
+    db.commit()
+
+    r = client.delete(f"/api/v1/departments/{dept.id}")
+    assert r.status_code == 204
+
+    # Department still exists, but is soft-deactivated
+    res_get = client.get(f"/api/v1/departments/{dept.id}")
+    assert res_get.status_code == 200
+    assert res_get.json()["is_active"] is False
+
+
+def test_delete_department_soft_deactivates_when_roles_exist(client: TestClient, db: Session):
+    dept = Department(name="Infrastructure", code="INF", is_active=True)
+    db.add(dept)
+    db.commit()
+
+    role = Role(title="Cloud Architect", code="CA1", department_id=dept.id)
+    db.add(role)
+    db.commit()
+
+    r = client.delete(f"/api/v1/departments/{dept.id}")
+    assert r.status_code == 204
+
+    # Department is soft-deactivated to preserve role's department_id
+    res_get = client.get(f"/api/v1/departments/{dept.id}")
+    assert res_get.status_code == 200
+    assert res_get.json()["is_active"] is False
+
+
+def test_department_missing_operations_return_404(client: TestClient):
+    assert client.patch("/api/v1/departments/99999", json={"name": "Ghost"}).status_code == 404
+    assert client.delete("/api/v1/departments/99999").status_code == 404
+
+
+def test_department_wildcard_characters_do_not_falsely_conflict(client: TestClient):
+    # 'A_1' with LIKE/ILIKE would match 'AB1' if wildcards aren't treated as literal
+    r1 = client.post("/api/v1/departments", json={"name": "Group A_1", "code": "A_1"})
+    assert r1.status_code == 201
+
+    r2 = client.post("/api/v1/departments", json={"name": "Group AB1", "code": "AB1"})
+    assert r2.status_code == 201
+
+

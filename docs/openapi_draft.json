@@ -928,7 +928,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 30
+                "pattern": "^\\+91[6-9]\\d{9}$"
               },
               {
                 "type": "null"
@@ -1365,7 +1365,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 30
+                "pattern": "^\\+91[6-9]\\d{9}$"
               },
               {
                 "type": "null"

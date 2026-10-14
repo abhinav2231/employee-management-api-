@@ -33,7 +33,7 @@ class EmployeeService:
         ident_str = str(identifier).strip()
         if ident_str.isdigit():
             return db.query(Employee).filter(Employee.id == int(ident_str)).first()
-        return db.query(Employee).filter(Employee.employee_code.ilike(ident_str)).first()
+        return db.query(Employee).filter(func.lower(Employee.employee_code) == ident_str.lower()).first()
 
     @staticmethod
     def _resolve_department(db: Session, dept_val: Any) -> Department:
@@ -41,13 +41,19 @@ class EmployeeService:
         if isinstance(dept_val, int) or (isinstance(dept_val, str) and dept_val.isdigit()):
             dept = db.query(Department).filter(Department.id == int(dept_val)).first()
         if not dept and isinstance(dept_val, str):
+            dept_clean = dept_val.strip().lower()
             dept = db.query(Department).filter(
-                or_(Department.code.ilike(dept_val.strip()), Department.name.ilike(dept_val.strip()))
+                or_(func.lower(Department.code) == dept_clean, func.lower(Department.name) == dept_clean)
             ).first()
 
         if not dept:
             raise BadRequestException(
                 f"Department '{dept_val}' does not exist",
+                field="department_id",
+            )
+        if not dept.is_active:
+            raise BadRequestException(
+                "Department is inactive",
                 field="department_id",
             )
         return dept
@@ -60,8 +66,9 @@ class EmployeeService:
         if isinstance(role_val, int) or (isinstance(role_val, str) and role_val.isdigit()):
             role = db.query(Role).filter(Role.id == int(role_val)).first()
         if not role and isinstance(role_val, str):
+            role_clean = role_val.strip().lower()
             role = db.query(Role).filter(
-                or_(Role.code.ilike(role_val.strip()), Role.title.ilike(role_val.strip()))
+                or_(func.lower(Role.code) == role_clean, func.lower(Role.title) == role_clean)
             ).first()
 
         if not role:
@@ -134,7 +141,7 @@ class EmployeeService:
 
         if employee_in.employee_code and employee_in.employee_code.strip():
             code_val = employee_in.employee_code.strip()
-            existing_code = db.query(Employee).filter(Employee.employee_code.ilike(code_val)).first()
+            existing_code = db.query(Employee).filter(func.lower(Employee.employee_code) == code_val.lower()).first()
             if existing_code:
                 raise ConflictException(
                     f"Employee with code '{code_val}' already exists ({existing_code.first_name} {existing_code.last_name}).",
@@ -201,7 +208,7 @@ class EmployeeService:
         if ident_str.isdigit():
             employee = query.filter(Employee.id == int(ident_str)).first()
         else:
-            employee = query.filter(Employee.employee_code.ilike(ident_str)).first()
+            employee = query.filter(func.lower(Employee.employee_code) == ident_str.lower()).first()
 
         if not employee:
             raise NotFoundException(f"Employee with ID or code '{employee_id}' not found", field="id")
