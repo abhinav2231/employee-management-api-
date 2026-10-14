@@ -52,9 +52,24 @@ def clean_pycache(root_dir: Path) -> int:
     return removed_count
 
 
+def verify_gitignore():
+    """Confirms dist/ is present in .gitignore."""
+    gitignore_path = REPO_ROOT / ".gitignore"
+    if gitignore_path.exists():
+        content = gitignore_path.read_text(encoding="utf-8")
+        if "dist/" in content or "dist" in content:
+            print("Verified: 'dist/' is properly excluded in .gitignore")
+            return True
+    print("Warning: 'dist/' not found in .gitignore")
+    return False
+
+
 def package_repository(output_zip: Path) -> Path:
     """Packages the repository into a clean ZIP archive with prefix employee_management_api/."""
-    clean_pycache(REPO_ROOT)
+    verify_gitignore()
+    cleaned = clean_pycache(REPO_ROOT)
+    if cleaned > 0:
+        print(f"Purged {cleaned} compiled bytecode / __pycache__ items from workspace.")
 
     output_zip.parent.mkdir(parents=True, exist_ok=True)
     if output_zip.exists():
@@ -93,6 +108,14 @@ def package_repository(output_zip: Path) -> Path:
         raise RuntimeError(f"Archive contains unexpected secret files: {env_files}")
 
     print(f"Clean ZIP successfully created: {output_zip} ({included_count} files, 0 .pyc, 0 secrets)")
+
+    # Also sync to user's Downloads folder if it exists
+    downloads_dir = Path.home() / "Downloads"
+    if downloads_dir.exists() and output_zip != downloads_dir / "employee_management_api.zip":
+        downloads_zip = downloads_dir / "employee_management_api.zip"
+        shutil.copy2(output_zip, downloads_zip)
+        print(f"Synchronized clean copy to: {downloads_zip}")
+
     return output_zip
 
 
@@ -111,3 +134,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

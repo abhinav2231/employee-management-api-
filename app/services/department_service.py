@@ -13,6 +13,7 @@ from app.schemas.department import DepartmentResponse, DepartmentCreate, Departm
 from app.schemas.employee import EmployeeResponse
 from app.schemas.common import PaginatedResponse
 from app.schemas.role import RoleBrief
+from app.services.formatters import format_employee_response
 
 
 class DepartmentService:
@@ -215,7 +216,7 @@ class DepartmentService:
         offset = (page - 1) * size
         employees = query.offset(offset).limit(size).all()
 
-        items = [DepartmentService._format_employee_response(e) for e in employees]
+        items = [format_employee_response(e) for e in employees]
 
         return PaginatedResponse(
             items=items,
@@ -227,41 +228,8 @@ class DepartmentService:
 
     @staticmethod
     def _format_employee_response(e: Employee) -> EmployeeResponse:
-        roles_brief = [
-            RoleBrief(
-                id=er.role.id,
-                code=er.role.code,
-                title=er.role.title,
-                level=er.role.level,
-                is_primary=er.is_primary,
-            )
-            for er in e.employee_roles
-        ]
-        return EmployeeResponse(
-            id=e.id,
-            employee_code=e.employee_code,
-            first_name=e.first_name,
-            last_name=e.last_name,
-            email=e.email,
-            phone_number=e.phone_number,
-            department_id=e.department_id,
-            department=e.department,
-            manager_id=e.manager_id,
-            manager=e.manager,
-            salary=e.salary,
-            hire_date=e.hire_date,
-            exit_date=e.exit_date,
-            employment_status=e.employment_status,
-            exit_type=e.exit_type,
-            exit_reason=e.exit_reason,
-            work_location=e.work_location,
-            work_mode=e.work_mode,
-            employment_type=e.employment_type,
-            is_active=e.is_active,
-            roles=roles_brief,
-            created_at=e.created_at,
-            updated_at=e.updated_at,
-        )
+        return format_employee_response(e)
+
 
 
 department_service = DepartmentService()

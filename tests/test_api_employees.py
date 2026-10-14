@@ -650,4 +650,36 @@ def test_employee_invalid_phone_number_format_rejected(client: TestClient, setup
     assert r3.status_code == 422
 
 
+def test_list_employees_escapes_like_wildcards(client: TestClient, db: Session):
+    dept1 = Department(name="Dept_Special", code="D_SP")
+    dept2 = Department(name="Dept-Special", code="D-SP")
+    db.add_all([dept1, dept2])
+    db.commit()
+
+    e1 = _emp(db, dept1, "e1_special@auraworkforce.io", employee_code="EMP_001", first_name="John_1")
+    e2 = _emp(db, dept2, "e2_special@auraworkforce.io", employee_code="EMP-001", first_name="John-1")
+
+    # Filter with employee_code containing '_' must not match '-'
+    res_code = client.get("/api/v1/employees?employee_code=EMP_001")
+    assert res_code.status_code == 200
+    items_code = res_code.json()["items"]
+    assert len(items_code) == 1
+    assert items_code[0]["employee_code"] == "EMP_001"
+
+    # Search with q containing '_' must not match '-'
+    res_q = client.get("/api/v1/employees?q=John_1")
+    assert res_q.status_code == 200
+    items_q = res_q.json()["items"]
+    assert len(items_q) == 1
+    assert items_q[0]["first_name"] == "John_1"
+
+    # Search with department containing '_'
+    res_dept = client.get("/api/v1/employees?department=Dept_Special")
+    assert res_dept.status_code == 200
+    items_dept = res_dept.json()["items"]
+    assert len(items_dept) == 1
+    assert items_dept[0]["email"] == "e1_special@auraworkforce.io"
+
+
+
 

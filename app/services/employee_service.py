@@ -23,6 +23,12 @@ from app.schemas.employee import (
 )
 from app.schemas.common import PaginatedResponse
 from app.schemas.role import RoleBrief
+from app.services.formatters import format_employee_response
+
+
+def _escape_like(val: str) -> str:
+    """Escapes SQL LIKE wildcards (% and _) and backslashes for literal substring matching."""
+    return val.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 class EmployeeService:
@@ -234,30 +240,31 @@ class EmployeeService:
             query = query.filter(Employee.is_active.is_(True))
 
         if employee_code and employee_code.strip():
-            code_term = employee_code.strip()
-            query = query.filter(Employee.employee_code.ilike(f"%{code_term}%"))
+            code_term = _escape_like(employee_code.strip())
+            query = query.filter(Employee.employee_code.ilike(f"%{code_term}%", escape="\\"))
 
         if department:
             dept_term = department.strip()
             if dept_term.isdigit():
                 query = query.filter(Employee.department_id == int(dept_term))
             else:
+                dept_escaped = _escape_like(dept_term)
                 query = query.join(Employee.department).filter(
                     or_(
-                        Department.code.ilike(dept_term),
-                        Department.name.ilike(f"%{dept_term}%"),
+                        func.lower(Department.code) == dept_term.lower(),
+                        Department.name.ilike(f"%{dept_escaped}%", escape="\\"),
                     )
                 )
 
         if q and q.strip():
-            search = f"%{q.strip()}%"
+            search = f"%{_escape_like(q.strip())}%"
             query = query.filter(
                 or_(
-                    Employee.first_name.ilike(search),
-                    Employee.last_name.ilike(search),
-                    func.concat(Employee.first_name, " ", Employee.last_name).ilike(search),
-                    Employee.email.ilike(search),
-                    Employee.employee_code.ilike(search),
+                    Employee.first_name.ilike(search, escape="\\"),
+                    Employee.last_name.ilike(search, escape="\\"),
+                    func.concat(Employee.first_name, " ", Employee.last_name).ilike(search, escape="\\"),
+                    Employee.email.ilike(search, escape="\\"),
+                    Employee.employee_code.ilike(search, escape="\\"),
                 )
             )
 
@@ -437,41 +444,7 @@ class EmployeeService:
 
     @staticmethod
     def _format_employee_response(e: Employee) -> EmployeeResponse:
-        roles_brief = [
-            RoleBrief(
-                id=er.role.id,
-                code=er.role.code,
-                title=er.role.title,
-                level=er.role.level,
-                is_primary=er.is_primary,
-            )
-            for er in e.employee_roles
-        ]
-        return EmployeeResponse(
-            id=e.id,
-            employee_code=e.employee_code,
-            first_name=e.first_name,
-            last_name=e.last_name,
-            email=e.email,
-            phone_number=e.phone_number,
-            department_id=e.department_id,
-            department=e.department,
-            manager_id=e.manager_id,
-            manager=e.manager,
-            salary=e.salary,
-            hire_date=e.hire_date,
-            exit_date=e.exit_date,
-            employment_status=e.employment_status,
-            exit_type=e.exit_type,
-            exit_reason=e.exit_reason,
-            work_location=e.work_location,
-            work_mode=e.work_mode,
-            employment_type=e.employment_type,
-            is_active=e.is_active,
-            roles=roles_brief,
-            created_at=e.created_at,
-            updated_at=e.updated_at,
-        )
+        return format_employee_response(e)
 
 
 employee_service = EmployeeService()

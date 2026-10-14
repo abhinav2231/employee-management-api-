@@ -305,7 +305,7 @@ docker compose exec api python -m scripts.seed
 
 # 6. Run automated test suite inside Docker
 docker compose exec api pytest -v
-# Output: 62 passed in 135.38s (0:02:15)
+# Output: 63 passed in 128.63s (0:02:08)
 ```
 
 ---
@@ -325,8 +325,8 @@ docker compose exec api pytest -v
   - **Career Progression History:** 1,606 career assignment milestones (`employee_assignments`).
   - **Salary Revisions:** 2,459 historical compensation adjustments (`salary_revisions`).
   - **Operational Payroll Window:** Pinned to **CY 2026** (2026-01-01 to 2026-09-01, exactly 9 calendar months), capturing **3,781 active payslip records**. Includes 35 mid-month final settlement records aligned to employee exit dates.
-  - **Attendance Window:** 4-month operational window (May 30 to Sep 30, 2026) capturing **36,751 attendance records** with clean leave codes and explicit `ABSENT_LOP` / `HALF_DAY_UNPAID` loss-of-pay statuses.
-  - **Phone Numbers:** Generated with Faker (seed 42), format +91[6-9]XXXXXXXXX (text formatted).
+  - **Phone Numbers (Deliberate Phase 1 Constraint):** Generated with Faker (seed 42), format `+91[6-9]XXXXXXXXX` (text formatted). Enforced in API schemas via regex `^\+91[6-9]\d{9}$`. This restriction is a deliberate Phase 1 design choice aligned with Zenith Nova Technologies India entity operating in INR currency. Multi-country E.164 formats will be introduced in subsequent internationalization phases for MNC regional offices.
+  - **Query Filter Escaping:** Employee roster filtering (`?department=`, `?employee_code=`, `?q=`) escapes `%` and `_` SQL wildcards, treating user inputs as literal search substrings and preventing wildcard injection.
 - **Standardized CSV Exports in [`data/exports/`](data/exports/):**
   - [`employees.csv`](data/exports/employees.csv): 745 employee records with `employee_code`, `first_name`, `last_name`, `email`, `phone_number`, `department_code`, `department_name`, `role_title`, `manager_code`, `manager_name`, `salary`, `hire_date`, `exit_date`, `work_location`, `work_mode`, `employment_type`, `employment_status`, `exit_type`, `exit_reason`, and `is_active`.
   - [`salaries.csv`](data/exports/salaries.csv): 3,781 monthly payslip records with `employee_code`, `first_name`, `last_name`, `pay_period`, `effective_date`, `base_salary`, `allowances`, `bonuses`, `deductions`, `net_salary`, `currency`, and `payment_status`.

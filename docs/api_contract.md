@@ -15,7 +15,7 @@
 | **GET** | `/health` | None | `200 OK` | Top-level system liveness & health check |
 | **GET** | `/api/v1/health` | None | `200 OK` | Versioned API health check |
 | **POST** | `/api/v1/employees` | `EmployeeCreate` (JSON) | `201 Created` | Create new employee with department & role |
-| **GET** | `/api/v1/employees` | Query params (`page`, `size`, `department`, `employee_code`, `q`, `include_inactive`) | `200 OK` | List employees with pagination, filter & search |
+| **GET** | `/api/v1/employees` | Query params (`page`, `size`, `department`, `employee_code`, `q`, `include_inactive`) | `200 OK` | List employees with pagination, filter & search (escapes `%`/`_` wildcards for literal matching) |
 | **GET** | `/api/v1/employees/{id}` | None | `200 OK` | Retrieve single employee by ID or Code |
 | **PATCH**| `/api/v1/employees/{id}` | `EmployeeUpdate` (JSON) | `200 OK` | Partial update of employee details (supports cycle prevention & manager clear) |
 | **DELETE**| `/api/v1/employees/{id}` | None | `204 No Content` | Soft delete employee (`is_active = false`), sets exit fields and reassigns direct reports |
