@@ -52,12 +52,6 @@ def parse_date_val(val: Any) -> Optional[date]:
         return None
 
 
-def generate_indian_mobile(seed_num: int) -> str:
-    rng = random.Random(seed_num)
-    first_digit = rng.choice(["6", "7", "8", "9"])
-    remaining_digits = "".join(rng.choices("0123456789", k=9))
-    return f"+91{first_digit}{remaining_digits}"
-
 
 def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str, Any]:
     if not os.path.exists(MASTER_DATASET_PATH):
@@ -117,7 +111,7 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
             email = base_email
         used_emails.add(email)
 
-        phone_number = generate_indian_mobile(42000 + idx)
+        phone_number = "+91" + fake.random_element(["6", "7", "8", "9"]) + fake.numerify("#########")
         hire_date = parse_date_val(row.get("hire_date"))
         exit_date = parse_date_val(row.get("exit_date"))
         dob = parse_date_val(row.get("date_of_birth"))

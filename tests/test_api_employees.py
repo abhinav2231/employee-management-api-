@@ -405,3 +405,72 @@ def test_get_employee_team(client: TestClient, setup_dept_and_role, db: Session)
     report_emails = [r["email"] for r in data["direct_reports"]]
     assert "jr1@auraworkforce.io" in report_emails
     assert "jr2@auraworkforce.io" in report_emails
+
+
+def _emp(db, dept, email, **kw):
+    e = Employee(first_name="T", last_name="User", email=email, department_id=dept.id,
+                 salary=Decimal("100000"), hire_date=date(2022, 1, 1), **kw)
+    db.add(e)
+    db.commit()
+    db.refresh(e)
+    return e
+
+
+def test_deactivate_sets_status_and_exit_date(client, setup_dept_and_role, db):
+    dept, _ = setup_dept_and_role
+    e = _emp(db, dept, "a@auraworkforce.io")
+    r = client.patch(f"/api/v1/employees/{e.id}", json={"is_active": False})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["employment_status"] == "Deactivated"
+    assert d["exit_date"] is not None and d["exit_type"] is None
+
+
+def test_reactivate_clears_exit_fields(client, setup_dept_and_role, db):
+    dept, _ = setup_dept_and_role
+    e = _emp(db, dept, "b@auraworkforce.io", is_active=False, employment_status="Resigned",
+             exit_date=date(2024, 1, 1), exit_type="Voluntary", exit_reason="Compensation")
+    r = client.patch(f"/api/v1/employees/{e.id}", json={"is_active": True})
+    d = r.json()
+    assert d["employment_status"] == "Active"
+    assert d["exit_date"] is None and d["exit_type"] is None and d["exit_reason"] is None
+
+
+def test_conflicting_status_and_active_rejected(client, setup_dept_and_role, db):
+    dept, _ = setup_dept_and_role
+    e = _emp(db, dept, "c@auraworkforce.io")
+    r = client.patch(f"/api/v1/employees/{e.id}",
+                     json={"employment_status": "Resigned", "is_active": True})
+    assert r.status_code == 422
+
+
+def test_invalid_status_rejected(client, setup_dept_and_role, db):
+    dept, _ = setup_dept_and_role
+    e = _emp(db, dept, "d@auraworkforce.io")
+    r = client.patch(f"/api/v1/employees/{e.id}", json={"employment_status": "foo"})
+    assert r.status_code == 422
+
+
+def test_exit_fields_on_active_employee_rejected(client, setup_dept_and_role, db):
+    dept, _ = setup_dept_and_role
+    e = _emp(db, dept, "e@auraworkforce.io")
+    r = client.patch(f"/api/v1/employees/{e.id}", json={"exit_type": "Voluntary"})
+    assert r.status_code == 400
+
+
+def test_soft_delete_does_not_invent_exit_type(client, setup_dept_and_role, db):
+    dept, _ = setup_dept_and_role
+    e = _emp(db, dept, "f@auraworkforce.io")
+    assert client.delete(f"/api/v1/employees/{e.id}").status_code == 204
+    d = client.get(f"/api/v1/employees/{e.id}").json()
+    assert d["employment_status"] == "Deactivated"
+    assert d["exit_type"] is None and d["exit_reason"] is None
+
+
+def test_explicit_exit_date_is_saved(client, setup_dept_and_role, db):
+    dept, _ = setup_dept_and_role
+    e = _emp(db, dept, "g@auraworkforce.io")
+    r = client.patch(f"/api/v1/employees/{e.id}", json={
+        "employment_status": "Resigned", "exit_type": "Voluntary", "exit_date": "2026-03-31"})
+    d = r.json()
+    assert d["is_active"] is False and d["exit_date"] == "2026-03-31"

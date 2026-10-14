@@ -242,7 +242,7 @@ erDiagram
 1. **One-to-Many vs Multi-Role**: Employees hold multiple roles via `employee_roles` with an `is_primary` flag, allowing secondary duties without breaking schema migrations. If an employee's role changes in the master dataset, their primary role is updated in place.
 2. **Organizational Hierarchy & Cycle Prevention**: Self-referential `manager_id` foreign key with acyclic hierarchy validation. Both direct self-management and multi-hop circular reporting (A → B → A, A → B → C → A) are prevented with a 400 Bad Request.
 3. **Soft Deletes, Status & Exit Field Consistency**:
-   - Status and exit fields maintain strict bidirectional consistency: deactivating an employee (`is_active = False` or soft delete) automatically sets `employment_status = "Resigned"` (or specified exit status) and stamps `exit_date = date.today()` if not previously recorded.
+   - Status and exit fields maintain strict bidirectional consistency: deactivating an employee (`is_active = False` or soft delete) automatically sets `employment_status = "Deactivated"` (if not already set to an explicit exit status) and stamps `exit_date = date.today()` if not previously recorded, without inventing an exit type or reason (preventing soft-deletions from masquerading as voluntary resignations).
    - Re-activating an employee (`is_active = True`) automatically resets `employment_status = "Active"` and clears `exit_date`, `exit_type`, and `exit_reason`.
    - When a manager is soft-deleted, direct reports are automatically reparented to the manager's manager to eliminate orphaned hierarchy branches.
    - Assigning an inactive or soft-deleted employee as a manager is strictly rejected with a 400 Bad Request.
@@ -270,13 +270,13 @@ erDiagram
 ### Running Tests Locally
 
 ```bash
-# Run full automated test suite (34 tests)
+# Run full automated test suite (41 tests)
 pytest -v
 ```
 
-All 34 tests execute against the auto-provisioned isolated test database:
+All 41 tests execute against the auto-provisioned isolated test database:
 ```text
-======================= 34 passed in ~25s =======================
+======================= 41 passed in ~25s =======================
 ```
 
 ### Proving End-to-End Operation (Docker)
@@ -312,7 +312,8 @@ docker compose exec api pytest -v
 - **Provenance & Benchmarking Origin:**
   - **Dataset Title:** *LedgerForge Master Dataset: Section 1 — Python: Core Payroll, Accounting & Employee Data Engine*.
   - **Simulated Entity:** Zenith Nova Technologies Pvt Ltd (mid-size Indian technology company, cut-off date September 30, 2026).
-  - **Source & Educational License:** Built as the simulated master dataset benchmark for the WorkforceOS / LedgerForge 20-task enterprise engineering roadmap, distributed under the **Creative Commons Attribution 4.0 International License (CC BY 4.0)**. All personnel, business numbers, client entities, and tax parameters are fictional and generated for training purposes.
+  - **Source:** Fictional training dataset provided by the program (company "Zenith Nova Technologies", as stated in the workbook's README sheet). All people, clients and numbers are fictional.
+  - **License:** The workbook does not state a license. No Kaggle HR dataset was used; the provided master dataset replaces it.
 - **Headline Numbers & Verified Schema Metrics:**
   - **Employees Ever Employed:** Exactly 745 employees (441 active, 304 exited).
   - **Departments & Roles:** 11 departments and 58 distinct roles spanning 7 job levels.
@@ -320,7 +321,7 @@ docker compose exec api pytest -v
   - **Salary Revisions:** 2,459 historical compensation adjustments (`salary_revisions`).
   - **Operational Payroll Window:** Pinned to **CY 2026** (2026-01-01 to 2026-09-01, exactly 9 calendar months), capturing **3,781 active payslip records**. Includes 35 mid-month final settlement records aligned to employee exit dates.
   - **Attendance Window:** 4-month operational window (May 30 to Sep 30, 2026) capturing **36,751 attendance records** with clean leave codes and explicit `ABSENT_LOP` / `HALF_DAY_UNPAID` loss-of-pay statuses.
-  - **Phone Numbers:** Deterministically generated valid Indian mobile numbers strictly adhering to the `+91[6-9]XXXXXXXXX` standard (10 digits preceded by `+91`, text formatted).
+  - **Phone Numbers:** Generated with Faker (seed 42), format +91[6-9]XXXXXXXXX (text formatted).
 - **Standardized CSV Exports in [`data/exports/`](data/exports/):**
   - [`employees.csv`](data/exports/employees.csv): 745 employee records with `employee_code`, `first_name`, `last_name`, `email`, `phone_number`, `department_code`, `department_name`, `role_title`, `manager_code`, `manager_name`, `salary`, `hire_date`, `exit_date`, `work_location`, `work_mode`, `employment_type`, `employment_status`, `exit_type`, `exit_reason`, and `is_active`.
   - [`salaries.csv`](data/exports/salaries.csv): 3,781 monthly payslip records with `employee_code`, `first_name`, `last_name`, `pay_period`, `effective_date`, `base_salary`, `allowances`, `bonuses`, `deductions`, `net_salary`, `currency`, and `payment_status`.

@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.models.employee import Employee
 from app.models.assignment import EmployeeAssignment
 from app.models.salary_revision import SalaryRevision
+from app.models.salary import SalaryRecord
+from app.models.attendance import Attendance
 from scripts.data_pipeline import load_and_clean_master_dataset
 from scripts.seed import seed_database
 from scripts.export_csv import export_database_to_csv
@@ -93,15 +95,21 @@ def test_idempotent_seeding(db: Session):
     emp_count_run1 = db.query(Employee).count()
     asg_count_run1 = db.query(EmployeeAssignment).count()
     rev_count_run1 = db.query(SalaryRevision).count()
+    sal1 = db.query(SalaryRecord).count()
+    att1 = db.query(Attendance).count()
 
     summary2 = seed_database(reset=False, db=db, do_export=False)
     emp_count_run2 = db.query(Employee).count()
     asg_count_run2 = db.query(EmployeeAssignment).count()
     rev_count_run2 = db.query(SalaryRevision).count()
+    sal2 = db.query(SalaryRecord).count()
+    att2 = db.query(Attendance).count()
 
     assert emp_count_run1 == emp_count_run2 == 745
     assert asg_count_run1 == asg_count_run2 == 1606
     assert rev_count_run1 == rev_count_run2 == 2459
+    assert sal1 == sal2 == 3781
+    assert att1 == att2 == 36751
     assert summary2["employees_inserted"] == 0
 
 

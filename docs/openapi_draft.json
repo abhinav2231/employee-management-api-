@@ -756,6 +756,18 @@
             "format": "date",
             "title": "Hire Date"
           },
+          "exit_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Date"
+          },
           "work_location": {
             "anyOf": [
               {
@@ -796,7 +808,13 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 50
+                "enum": [
+                  "Active",
+                  "Resigned",
+                  "Terminated",
+                  "Contract Ended",
+                  "Deactivated"
+                ]
               },
               {
                 "type": "null"
@@ -808,7 +826,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 50
+                "enum": [
+                  "Voluntary",
+                  "Involuntary",
+                  "Contract End"
+                ]
               },
               {
                 "type": "null"
@@ -1143,6 +1165,18 @@
             ],
             "title": "Hire Date"
           },
+          "exit_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Date"
+          },
           "work_location": {
             "anyOf": [
               {
@@ -1183,7 +1217,13 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 50
+                "enum": [
+                  "Active",
+                  "Resigned",
+                  "Terminated",
+                  "Contract Ended",
+                  "Deactivated"
+                ]
               },
               {
                 "type": "null"
@@ -1195,7 +1235,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 50
+                "enum": [
+                  "Voluntary",
+                  "Involuntary",
+                  "Contract End"
+                ]
               },
               {
                 "type": "null"

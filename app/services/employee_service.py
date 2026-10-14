@@ -1,3 +1,4 @@
+from datetime import date
 import math
 import re
 from typing import Optional, List, Any, Union
@@ -155,9 +156,10 @@ class EmployeeService:
             work_location=employee_in.work_location,
             work_mode=employee_in.work_mode,
             employment_type=employee_in.employment_type,
-            employment_status=employee_in.employment_status or ("Active" if employee_in.is_active else "Resigned"),
+            employment_status=employee_in.employment_status or ("Active" if employee_in.is_active else "Deactivated"),
             exit_type=employee_in.exit_type,
             exit_reason=employee_in.exit_reason,
+            exit_date=employee_in.exit_date or (None if employee_in.is_active else date.today()),
             is_active=employee_in.is_active,
         )
         db.add(employee)
@@ -332,45 +334,31 @@ class EmployeeService:
             employee.work_mode = update_data["work_mode"]
         if "employment_type" in update_data:
             employee.employment_type = update_data["employment_type"]
-        if "exit_type" in update_data:
-            employee.exit_type = update_data["exit_type"]
-        if "exit_reason" in update_data:
-            employee.exit_reason = update_data["exit_reason"]
-
-        if "employment_status" in update_data and update_data["employment_status"] is not None:
-            new_status = str(update_data["employment_status"]).strip()
-            employee.employment_status = new_status
-            if new_status.lower() == "active":
-                employee.is_active = True
-                employee.exit_date = None
-                employee.exit_type = None
-                employee.exit_reason = None
-            elif new_status.lower() in ["resigned", "terminated", "contract ended"]:
-                from datetime import date
-                employee.is_active = False
-                if not employee.exit_date:
-                    employee.exit_date = date.today()
-                if not employee.exit_type:
-                    employee.exit_type = "Involuntary" if new_status.lower() == "terminated" else "Voluntary"
-
-        if "is_active" in update_data and update_data["is_active"] is not None:
-            new_active = bool(update_data["is_active"])
-            employee.is_active = new_active
-            if new_active:
-                employee.exit_date = None
+        if update_data.get("employment_status") is not None:
+            employee.employment_status = update_data["employment_status"]
+            employee.is_active = update_data["employment_status"] == "Active"
+        elif update_data.get("is_active") is not None:
+            employee.is_active = update_data["is_active"]
+            if employee.is_active:
                 employee.employment_status = "Active"
-                employee.exit_type = None
-                employee.exit_reason = None
-            else:
-                from datetime import date
-                if not employee.exit_date:
-                    employee.exit_date = date.today()
-                if not employee.employment_status or employee.employment_status.lower() == "active":
-                    employee.employment_status = "Resigned"
-                if not employee.exit_type:
-                    employee.exit_type = "Voluntary"
-                if not employee.exit_reason:
-                    employee.exit_reason = "Deactivated via Management API"
+            elif employee.employment_status in (None, "Active"):
+                employee.employment_status = "Deactivated"
+
+        if employee.is_active:
+            if any(update_data.get(k) is not None for k in ("exit_type", "exit_reason", "exit_date")):
+                raise BadRequestException("Exit fields cannot be set on an active employee", field="exit_type")
+            employee.exit_date = employee.exit_type = employee.exit_reason = None
+        else:
+            if update_data.get("exit_date") is not None:
+                if update_data["exit_date"] < employee.hire_date:
+                    raise BadRequestException("exit_date cannot be before hire_date", field="exit_date")
+                employee.exit_date = update_data["exit_date"]
+            elif not employee.exit_date:
+                employee.exit_date = date.today()
+            if "exit_type" in update_data:
+                employee.exit_type = update_data["exit_type"]
+            if "exit_reason" in update_data:
+                employee.exit_reason = update_data["exit_reason"]
 
         try:
             db.commit()
@@ -390,16 +378,11 @@ class EmployeeService:
         for report in employee.direct_reports:
             report.manager_id = employee.manager_id
 
-        from datetime import date
         employee.is_active = False
         if not employee.exit_date:
             employee.exit_date = date.today()
-        if not employee.employment_status or employee.employment_status.lower() == "active":
-            employee.employment_status = "Resigned"
-        if not employee.exit_type:
-            employee.exit_type = "Voluntary"
-        if not employee.exit_reason:
-            employee.exit_reason = "Deactivated via Management API"
+        if employee.employment_status in (None, "Active"):
+            employee.employment_status = "Deactivated"
         db.commit()
 
     @staticmethod

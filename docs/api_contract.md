@@ -44,8 +44,8 @@
 | `salary` | `number` | Create / Update / Read | Required, `> 0` | Annual gross compensation (INR) |
 | `hire_date` | `string (date)` | Create / Update / Read | Required, `YYYY-MM-DD`, non-future | Date of joining |
 | `exit_date` | `string (date)` | Create / Update / Read | Optional, `YYYY-MM-DD` | Date of departure / exit |
-| `employment_status`| `string` | Create / Update / Read | `Active`, `Resigned`, `Terminated` | Status of employment |
-| `exit_type` | `string` | Create / Update / Read | `Voluntary`, `Involuntary`, etc. | Categorization of exit |
+| `employment_status`| `string (enum)` | Create / Update / Read | `Active`, `Resigned`, `Terminated`, `Contract Ended`, `Deactivated` | Status of employment |
+| `exit_type` | `string (enum)` | Create / Update / Read | `Voluntary`, `Involuntary`, `Contract End` | Categorization of exit |
 | `exit_reason` | `string` | Create / Update / Read | Max: 255 | Departure reason narrative |
 | `work_location` | `string` | Create / Update / Read | Max: 50 | Office city / base location |
 | `work_mode` | `string` | Create / Update / Read | `Onsite`, `Remote`, `Hybrid` | Operating work model |
