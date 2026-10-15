@@ -3,7 +3,7 @@ import os
 import sys
 from typing import Optional, Dict, Any
 import pandas as pd
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, joinedload
 
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
@@ -13,221 +13,205 @@ from app.core.database import SessionLocal, engine
 
 engine.echo = False
 from app.models.employee import Employee
-from app.models.role import EmployeeRole, Role
+from app.models.role import Role
 from app.models.department import Department
-from app.models.salary import SalaryRecord
+from app.models.salary_structure import SalaryStructure
 from app.models.attendance import Attendance
 from app.models.salary_revision import SalaryRevision
 from app.models.assignment import EmployeeAssignment
 
-EXPORTS_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "exports",
-)
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EXPORTS_DIR = os.path.join(REPO_ROOT, "exports")
+DATA_EXPORTS_DIR = os.path.join(REPO_ROOT, "data", "exports")
 
 
 def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] = None) -> Dict[str, Any]:
+    """Exports master tables from the database to clean standardized CSV files."""
     os.makedirs(output_dir, exist_ok=True)
+    # Also ensure data/exports directory exists
+    os.makedirs(DATA_EXPORTS_DIR, exist_ok=True)
+
     close_session = False
     if db is None:
         db = SessionLocal()
         close_session = True
 
     try:
+        # 1. Employees Export
         employees = (
             db.query(Employee)
             .options(
                 joinedload(Employee.department),
+                joinedload(Employee.role),
                 joinedload(Employee.manager),
-                selectinload(Employee.employee_roles).joinedload(EmployeeRole.role),
             )
-            .order_by(Employee.employee_code.asc())
+            .order_by(Employee.employee_id.asc())
             .all()
         )
         emp_rows = []
         for e in employees:
-            primary_role = next((er.role.title for er in e.employee_roles if er.is_primary and er.role), None)
+            role_title = e.role.role_title if e.role else None
             emp_rows.append({
-                "employee_code": e.employee_code,
+                "employee_id": e.employee_id,
+                "employee_code": e.employee_id,
                 "first_name": e.first_name,
                 "last_name": e.last_name,
-                "email": e.email,
+                "full_name": e.full_name,
+                "work_email": e.work_email,
+                "email": e.work_email,
                 "phone_number": e.phone_number,
-                "department_code": e.department.code if e.department else None,
-                "department_name": e.department.name if e.department else None,
-                "role_title": primary_role,
-                "manager_code": e.manager.employee_code if e.manager else None,
-                "manager_name": f"{e.manager.first_name} {e.manager.last_name}" if e.manager else None,
-                "salary": float(e.salary),
-                "hire_date": e.hire_date.isoformat() if e.hire_date else None,
-                "exit_date": e.exit_date.isoformat() if e.exit_date else None,
-                "work_location": e.work_location,
-                "work_mode": e.work_mode,
-                "employment_type": e.employment_type,
+                "gender": e.gender,
+                "date_of_birth": e.date_of_birth,
+                "department_id": e.department_id,
+                "department_name": e.department.department_name if e.department else None,
+                "role_id": e.role_id,
+                "role_title": role_title,
+                "manager_id": e.manager_id,
+                "salary": e.salary,
+                "hire_date": e.hire_date,
+                "exit_date": e.exit_date,
                 "employment_status": e.employment_status,
+                "employment_type": e.employment_type,
                 "exit_type": e.exit_type,
                 "exit_reason": e.exit_reason,
+                "work_location": e.work_location,
+                "work_mode": e.work_mode,
+                "highest_education": e.highest_education,
+                "prior_experience_years": e.prior_experience_years,
+                "career_gap_months": e.career_gap_months,
+                "commute_distance_km": e.commute_distance_km,
+                "pf_applicable": e.pf_applicable,
+                "esi_applicable": e.esi_applicable,
+                "notice_period_days": e.notice_period_days,
+                "resignation_date": e.resignation_date,
                 "is_active": e.is_active,
             })
+        df_emp = pd.DataFrame(emp_rows)
+        emp_csv = os.path.join(output_dir, "employees.csv")
+        df_emp.to_csv(emp_csv, index=False)
+        df_emp.to_csv(os.path.join(DATA_EXPORTS_DIR, "employees.csv"), index=False)
 
-        emp_df = pd.DataFrame(emp_rows)
-        emp_df["phone_number"] = emp_df["phone_number"].astype(str)
-        emp_path = os.path.join(output_dir, "employees.csv")
-        emp_df.to_csv(emp_path, index=False, encoding="utf-8", lineterminator="\n")
-
-        sal_query = (
-            db.query(
-                Employee.employee_code,
-                Employee.first_name,
-                Employee.last_name,
-                SalaryRecord.pay_period,
-                SalaryRecord.effective_date,
-                SalaryRecord.base_salary,
-                SalaryRecord.allowances,
-                SalaryRecord.bonuses,
-                SalaryRecord.deductions,
-                SalaryRecord.net_salary,
-                SalaryRecord.currency,
-                SalaryRecord.payment_status,
-            )
-            .join(Employee, SalaryRecord.employee_id == Employee.id)
-            .order_by(Employee.employee_code.asc(), SalaryRecord.pay_period.asc())
+        # 2. Salary Structures Export
+        structures = (
+            db.query(SalaryStructure)
+            .order_by(SalaryStructure.employee_id.asc(), SalaryStructure.effective_from.asc())
             .all()
         )
-        sal_rows = []
-        for row in sal_query:
-            sal_rows.append({
-                "employee_code": row[0],
-                "first_name": row[1],
-                "last_name": row[2],
-                "pay_period": row[3],
-                "effective_date": row[4].isoformat() if row[4] else None,
-                "base_salary": float(row[5]),
-                "allowances": float(row[6]),
-                "bonuses": float(row[7]),
-                "deductions": float(row[8]),
-                "net_salary": float(row[9]),
-                "currency": row[10],
-                "payment_status": row[11],
+        struct_rows = []
+        for s in structures:
+            struct_rows.append({
+                "structure_id": s.structure_id,
+                "employee_id": s.employee_id,
+                "component_id": s.component_id,
+                "component_name": s.component_name,
+                "component_type": s.component_type,
+                "monthly_amount": s.monthly_amount,
+                "effective_from": s.effective_from,
+                "effective_to": s.effective_to,
+                "revision_id": s.revision_id,
             })
+        df_struct = pd.DataFrame(struct_rows)
+        struct_csv = os.path.join(output_dir, "salary_structures.csv")
+        df_struct.to_csv(struct_csv, index=False)
+        df_struct.to_csv(os.path.join(DATA_EXPORTS_DIR, "salary_structures.csv"), index=False)
 
-        sal_df = pd.DataFrame(sal_rows)
-        sal_path = os.path.join(output_dir, "salaries.csv")
-        sal_df.to_csv(sal_path, index=False, encoding="utf-8", lineterminator="\n")
-
-        att_query = (
-            db.query(
-                Employee.employee_code,
-                Attendance.date,
-                Attendance.status,
-                Attendance.check_in,
-                Attendance.check_out,
-                Attendance.hours_worked,
-                Attendance.notes,
-            )
-            .join(Employee, Attendance.employee_id == Employee.id)
-            .order_by(Employee.employee_code.asc(), Attendance.date.asc())
-            .all()
-        )
+        # 3. Attendance Export
         att_rows = []
-        for row in att_query:
+        attendances = (
+            db.query(Attendance)
+            .order_by(Attendance.attendance_date.asc(), Attendance.employee_id.asc())
+            .all()
+        )
+        for a in attendances:
             att_rows.append({
-                "employee_code": row[0],
-                "date": row[1].isoformat() if row[1] else None,
-                "status": row[2],
-                "check_in": row[3].strftime("%H:%M:%S") if row[3] else None,
-                "check_out": row[4].strftime("%H:%M:%S") if row[4] else None,
-                "hours_worked": float(row[5]) if row[5] is not None else None,
-                "notes": row[6],
+                "attendance_id": a.attendance_id,
+                "employee_id": a.employee_id,
+                "attendance_date": a.attendance_date,
+                "weekday": a.weekday,
+                "status": a.status,
+                "leave_type_code": a.leave_type_code,
+                "check_in": a.check_in,
+                "check_out": a.check_out,
+                "hours_worked": a.hours_worked,
+                "overtime_hours": a.overtime_hours,
+                "late_flag": a.late_flag,
+                "source": a.source,
+                "data_quality_flag": a.data_quality_flag,
+                "department_id": a.department_id,
             })
+        df_att = pd.DataFrame(att_rows)
+        att_csv = os.path.join(output_dir, "attendance.csv")
+        df_att.to_csv(att_csv, index=False)
+        df_att.to_csv(os.path.join(DATA_EXPORTS_DIR, "attendance.csv"), index=False)
 
-        att_df = pd.DataFrame(att_rows)
-        att_path = os.path.join(output_dir, "attendance.csv")
-        att_df.to_csv(att_path, index=False, encoding="utf-8", lineterminator="\n")
-
-        rev_query = (
-            db.query(
-                SalaryRevision.revision_code,
-                Employee.employee_code,
-                SalaryRevision.effective_from,
-                SalaryRevision.revision_reason,
-                SalaryRevision.previous_annual_fixed,
-                SalaryRevision.new_annual_fixed,
-                SalaryRevision.pct_change,
-                SalaryRevision.role_id_after,
-                SalaryRevision.approved_by,
-            )
-            .join(Employee, SalaryRevision.employee_id == Employee.id)
-            .order_by(SalaryRevision.id.asc())
+        # 4. Salary Revisions Export
+        revisions = (
+            db.query(SalaryRevision)
+            .order_by(SalaryRevision.employee_id.asc(), SalaryRevision.effective_from.asc())
             .all()
         )
         rev_rows = []
-        for r in rev_query:
+        for r in revisions:
             rev_rows.append({
-                "revision_code": r[0],
-                "employee_code": r[1],
-                "effective_from": r[2].isoformat() if r[2] else None,
-                "revision_reason": r[3],
-                "previous_annual_fixed": float(r[4]) if r[4] is not None else None,
-                "new_annual_fixed": float(r[5]) if r[5] is not None else None,
-                "pct_change": float(r[6]) if r[6] is not None else None,
-                "role_id_after": r[7],
-                "approved_by": r[8],
+                "revision_id": r.revision_id,
+                "employee_id": r.employee_id,
+                "effective_from": r.effective_from,
+                "revision_reason": r.revision_reason,
+                "previous_annual_fixed": r.previous_annual_fixed,
+                "new_annual_fixed": r.new_annual_fixed,
+                "pct_change": r.pct_change,
+                "role_id_after": r.role_id_after,
+                "approved_by": r.approved_by,
             })
-        rev_df = pd.DataFrame(rev_rows)
-        rev_path = os.path.join(output_dir, "salary_revisions.csv")
-        rev_df.to_csv(rev_path, index=False, encoding="utf-8", lineterminator="\n")
+        df_rev = pd.DataFrame(rev_rows)
+        rev_csv = os.path.join(output_dir, "salary_revisions.csv")
+        df_rev.to_csv(rev_csv, index=False)
+        df_rev.to_csv(os.path.join(DATA_EXPORTS_DIR, "salary_revisions.csv"), index=False)
 
-        asgn_query = (
-            db.query(
-                EmployeeAssignment.assignment_code,
-                Employee.employee_code,
-                EmployeeAssignment.effective_from,
-                EmployeeAssignment.effective_to,
-                Department.code.label("department_code"),
-                Role.title.label("role_title"),
-                EmployeeAssignment.job_level,
-                EmployeeAssignment.change_reason,
-            )
-            .join(Employee, EmployeeAssignment.employee_id == Employee.id)
-            .outerjoin(Department, EmployeeAssignment.department_id == Department.id)
-            .outerjoin(Role, EmployeeAssignment.role_id == Role.id)
-            .order_by(EmployeeAssignment.id.asc())
+        # 5. Assignments Export
+        assignments = (
+            db.query(EmployeeAssignment)
+            .order_by(EmployeeAssignment.employee_id.asc(), EmployeeAssignment.effective_from.asc())
             .all()
         )
-        asgn_rows = []
-        for a in asgn_query:
-            asgn_rows.append({
-                "assignment_code": a[0],
-                "employee_code": a[1],
-                "effective_from": a[2].isoformat() if a[2] else None,
-                "effective_to": a[3].isoformat() if a[3] else None,
-                "department_code": a[4],
-                "role_title": a[5],
-                "job_level": a[6],
-                "change_reason": a[7],
+        asg_rows = []
+        for asg in assignments:
+            asg_rows.append({
+                "assignment_id": asg.assignment_id,
+                "employee_id": asg.employee_id,
+                "effective_from": asg.effective_from,
+                "effective_to": asg.effective_to,
+                "department_id": asg.department_id,
+                "role_id": asg.role_id,
+                "job_level": asg.job_level,
+                "manager_id": asg.manager_id,
+                "change_reason": asg.change_reason,
             })
-        asgn_df = pd.DataFrame(asgn_rows)
-        asgn_path = os.path.join(output_dir, "assignments.csv")
-        asgn_df.to_csv(asgn_path, index=False, encoding="utf-8", lineterminator="\n")
+        df_asg = pd.DataFrame(asg_rows)
+        asg_csv = os.path.join(output_dir, "assignments.csv")
+        df_asg.to_csv(asg_csv, index=False)
+        df_asg.to_csv(os.path.join(DATA_EXPORTS_DIR, "assignments.csv"), index=False)
 
         return {
-            "employees_csv": emp_path,
-            "salaries_csv": sal_path,
-            "attendance_csv": att_path,
-            "salary_revisions_csv": rev_path,
-            "assignments_csv": asgn_path,
-            "employees_count": len(emp_df),
-            "salaries_count": len(sal_df),
-            "attendance_count": len(att_df),
-            "salary_revisions_count": len(rev_df),
-            "assignments_count": len(asgn_df),
+            "employees_csv": emp_csv,
+            "employees_count": len(emp_rows),
+            "salary_structures_csv": struct_csv,
+            "salary_structures_count": len(struct_rows),
+            "attendance_csv": att_csv,
+            "attendance_count": len(att_rows),
+            "salary_revisions_csv": rev_csv,
+            "salary_revisions_count": len(rev_rows),
+            "assignments_csv": asg_csv,
+            "assignments_count": len(asg_rows),
         }
+
     finally:
         if close_session:
             db.close()
 
 
 if __name__ == "__main__":
-    export_database_to_csv()
+    res = export_database_to_csv()
+    print("CSV exports generated successfully:")
+    for k, v in res.items():
+        print(f"  {k}: {v}")

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.department import Department
 from app.models.role import Role, EmployeeRole
 from app.models.employee import Employee
+from app.models.attendance import Attendance
 
 
 def test_unique_email_constraint(db: Session):
@@ -291,3 +292,65 @@ def test_unique_department_and_role_constraints(db: Session):
     with pytest.raises(IntegrityError):
         db.commit()
     db.rollback()
+
+
+def test_attendance_explicit_statuses(db: Session):
+    """
+    Verify attendance logs accurately support ABSENT_LOP, HALF_DAY_UNPAID, and UNPAID_LEAVE.
+    """
+    dept = Department(name="HR", code="HR_ATT")
+    db.add(dept)
+    db.commit()
+
+    emp = Employee(
+        first_name="Attend",
+        last_name="Tester",
+        email="attend.tester@auraworkforce.io",
+        department_id=dept.id,
+        salary=Decimal("60000.00"),
+        hire_date=date(2024, 1, 1),
+    )
+    db.add(emp)
+    db.commit()
+
+    statuses = ["ABSENT_LOP", "HALF_DAY_UNPAID", "UNPAID_LEAVE"]
+    for i, st in enumerate(statuses, start=1):
+        att = Attendance(
+            employee_id=emp.id,
+            date=date(2026, 6, i),
+            status=st,
+            hours_worked=Decimal("0.00") if "ABSENT" in st or "UNPAID_LEAVE" in st else Decimal("4.00"),
+            notes=f"Explicit status test: {st}",
+        )
+        db.add(att)
+    db.commit()
+
+    saved_att = db.query(Attendance).filter(Attendance.employee_id == emp.id).all()
+    saved_statuses = [a.status for a in saved_att]
+    for st in statuses:
+        assert st in saved_statuses
+
+
+def test_employee_exit_date_check_constraint(db: Session):
+    """
+    Ensure the CheckConstraint('exit_date IS NULL OR exit_date >= hire_date') rejects exit_date < hire_date.
+    """
+    dept = Department(name="Legal", code="LEG")
+    db.add(dept)
+    db.commit()
+
+    invalid_emp = Employee(
+        first_name="Time",
+        last_name="Traveler",
+        email="time.traveler@auraworkforce.io",
+        department_id=dept.id,
+        salary=Decimal("90000.00"),
+        hire_date=date(2024, 6, 1),
+        exit_date=date(2024, 5, 1),  # Before hire date
+        is_active=False,
+    )
+    db.add(invalid_emp)
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+

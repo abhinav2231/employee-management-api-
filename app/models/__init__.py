@@ -7,6 +7,7 @@ from app.models.assignment import EmployeeAssignment
 from app.models.attendance import Attendance
 from app.models.salary import SalaryRecord
 from app.models.salary_revision import SalaryRevision
+from app.models.salary_structure import SalaryStructure
 
 __all__ = [
     "Base",
@@ -19,4 +20,5 @@ __all__ = [
     "Attendance",
     "SalaryRecord",
     "SalaryRevision",
+    "SalaryStructure",
 ]

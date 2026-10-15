@@ -23,6 +23,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        INSTALL_DEV: "true"
     container_name: aura_workforce_api
     restart: unless-stopped
     ports:
@@ -31,6 +33,7 @@ services:
       - path: .env
         required: false
     environment:
+      RUNNING_IN_CONTAINER: "true"
       POSTGRES_SERVER: db
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-aura_workforce_db}
     volumes:

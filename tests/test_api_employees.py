@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models.department import Department
-from app.models.role import Role
+from app.models.role import Role, EmployeeRole
 from app.models.employee import Employee
 
 
@@ -679,6 +679,287 @@ def test_list_employees_escapes_like_wildcards(client: TestClient, db: Session):
     items_dept = res_dept.json()["items"]
     assert len(items_dept) == 1
     assert items_dept[0]["email"] == "e1_special@auraworkforce.io"
+
+
+def test_list_employees_include_inactive(client: TestClient, db: Session):
+    dept = Department(name="Ops", code="OPS")
+    db.add(dept)
+    db.commit()
+
+    active_emp = _emp(db, dept, "active.worker@auraworkforce.io", is_active=True)
+    inactive_emp = _emp(db, dept, "inactive.worker@auraworkforce.io", is_active=False)
+
+    # By default, only active employees are returned
+    res_default = client.get("/api/v1/employees")
+    assert res_default.status_code == 200
+    ids_default = [item["id"] for item in res_default.json()["items"]]
+    assert active_emp.id in ids_default
+    assert inactive_emp.id not in ids_default
+
+    # With include_inactive=true, both active and inactive are returned
+    res_all = client.get("/api/v1/employees?include_inactive=true")
+    assert res_all.status_code == 200
+    ids_all = [item["id"] for item in res_all.json()["items"]]
+    assert active_emp.id in ids_all
+    assert inactive_emp.id in ids_all
+
+
+def test_employees_and_departments_pagination_edges(client: TestClient, db: Session):
+    dept = Department(name="PaginationDept", code="PAG")
+    db.add(dept)
+    db.commit()
+    _emp(db, dept, "p1@auraworkforce.io")
+    _emp(db, dept, "p2@auraworkforce.io")
+
+    # Page past the end -> returns empty items list, 200 OK
+    res_past = client.get("/api/v1/employees?page=999&size=10")
+    assert res_past.status_code == 200
+    assert res_past.json()["items"] == []
+    assert res_past.json()["page"] == 999
+
+    res_dept_past = client.get(f"/api/v1/departments/{dept.id}/employees?page=999&size=10")
+    assert res_dept_past.status_code == 200
+    assert res_dept_past.json()["items"] == []
+
+    # size = 0 -> 422
+    assert client.get("/api/v1/employees?size=0").status_code == 422
+    assert client.get(f"/api/v1/departments/{dept.id}/employees?size=0").status_code == 422
+
+    # size = 101 -> 422
+    assert client.get("/api/v1/employees?size=101").status_code == 422
+    assert client.get(f"/api/v1/departments/{dept.id}/employees?size=101").status_code == 422
+
+
+def test_delete_employee_reparents_reports(client: TestClient, db: Session):
+    dept = Department(name="HierarchyDept", code="HIER")
+    db.add(dept)
+    db.commit()
+
+    grand_mgr = _emp(db, dept, "grand.mgr@auraworkforce.io")
+    mgr = _emp(db, dept, "mid.mgr@auraworkforce.io", manager_id=grand_mgr.id)
+    report = _emp(db, dept, "direct.rep@auraworkforce.io", manager_id=mgr.id)
+
+    # DELETE manager
+    del_res = client.delete(f"/api/v1/employees/{mgr.id}")
+    assert del_res.status_code == 204
+
+    db.refresh(report)
+    assert report.manager_id == grand_mgr.id
+
+
+def test_patch_deactivate_reparents_reports(client: TestClient, db: Session):
+    dept = Department(name="PatchReparentDept", code="PRP")
+    db.add(dept)
+    db.commit()
+
+    # Case 1: is_active = False
+    gm1 = _emp(db, dept, "gm1@auraworkforce.io")
+    mgr1 = _emp(db, dept, "mgr1@auraworkforce.io", manager_id=gm1.id)
+    rep1 = _emp(db, dept, "rep1@auraworkforce.io", manager_id=mgr1.id)
+
+    patch_res1 = client.patch(f"/api/v1/employees/{mgr1.id}", json={"is_active": False})
+    assert patch_res1.status_code == 200
+    db.refresh(rep1)
+    assert rep1.manager_id == gm1.id
+
+    # Case 2: employment_status = "Resigned"
+    gm2 = _emp(db, dept, "gm2@auraworkforce.io")
+    mgr2 = _emp(db, dept, "mgr2@auraworkforce.io", manager_id=gm2.id)
+    rep2 = _emp(db, dept, "rep2@auraworkforce.io", manager_id=mgr2.id)
+
+    patch_res2 = client.patch(f"/api/v1/employees/{mgr2.id}", json={"employment_status": "Resigned"})
+    assert patch_res2.status_code == 200
+    db.refresh(rep2)
+    assert rep2.manager_id == gm2.id
+
+
+def test_duplicate_custom_employee_code_conflict(client: TestClient, db: Session):
+    dept = Department(name="CodeDept", code="CDE")
+    db.add(dept)
+    db.commit()
+
+    payload1 = {
+        "employee_code": "EMP-0888",
+        "first_name": "Unique",
+        "last_name": "One",
+        "email": "unique.one@auraworkforce.io",
+        "department_id": dept.id,
+        "salary": 75000,
+        "hire_date": "2024-01-01",
+    }
+    r1 = client.post("/api/v1/employees", json=payload1)
+    assert r1.status_code == 201
+
+    payload2 = {
+        "employee_code": "EMP-0888",
+        "first_name": "Unique",
+        "last_name": "Two",
+        "email": "unique.two@auraworkforce.io",
+        "department_id": dept.id,
+        "salary": 80000,
+        "hire_date": "2024-01-01",
+    }
+    r2 = client.post("/api/v1/employees", json=payload2)
+    assert r2.status_code == 409
+    assert r2.json()["field"] == "employee_code"
+
+
+def test_custom_employee_code_format_validation(client: TestClient, db: Session):
+    dept = Department(name="FmtDept", code="FMT")
+    db.add(dept)
+    db.commit()
+
+    base_payload = {
+        "first_name": "Invalid",
+        "last_name": "Code",
+        "email": "invalid.code@auraworkforce.io",
+        "department_id": dept.id,
+        "salary": 70000,
+        "hire_date": "2024-01-01",
+    }
+
+    # EMP-99999999 exceeds 4 digits
+    res1 = client.post("/api/v1/employees", json={**base_payload, "employee_code": "EMP-99999999"})
+    assert res1.status_code == 422
+    assert "EMP-XXXX" in res1.json()["detail"]
+    assert not res1.json()["detail"].startswith("Value error, ")
+
+    # Non-standard prefix
+    res2 = client.post("/api/v1/employees", json={**base_payload, "employee_code": "WRONG-0001"})
+    assert res2.status_code == 422
+
+
+def test_email_case_insensitivity_create_and_update(client: TestClient, db: Session):
+    dept = Department(name="CaseDept", code="CSE")
+    db.add(dept)
+    db.commit()
+
+    # Create with mixed-case email -> saved as lowercase
+    res1 = client.post("/api/v1/employees", json={
+        "first_name": "Case",
+        "last_name": "Test",
+        "email": "Case.Test@AuraWorkforce.IO",
+        "department_id": dept.id,
+        "salary": 90000,
+        "hire_date": "2024-01-01",
+    })
+    assert res1.status_code == 201
+    assert res1.json()["email"] == "case.test@auraworkforce.io"
+
+    # Creating another employee with different casing of the same email -> 409
+    res2 = client.post("/api/v1/employees", json={
+        "first_name": "Another",
+        "last_name": "Case",
+        "email": "CASE.TEST@auraworkforce.io",
+        "department_id": dept.id,
+        "salary": 85000,
+        "hire_date": "2024-01-01",
+    })
+    assert res2.status_code == 409
+    assert res2.json()["field"] == "email"
+
+
+def test_patch_employee_switch_primary_role(client: TestClient, db: Session):
+    dept = Department(name="RoleSwitchDept", code="RSD")
+    r1 = Role(title="Software Engineer", code="SWE")
+    r2 = Role(title="Senior Software Engineer", code="SR_SWE")
+    db.add_all([dept, r1, r2])
+    db.commit()
+
+    emp = _emp(db, dept, "role.switcher@auraworkforce.io")
+    er1 = EmployeeRole(employee_id=emp.id, role_id=r1.id, is_primary=True)
+    db.add(er1)
+    db.commit()
+
+    # Switch primary role to r2
+    res = client.patch(f"/api/v1/employees/{emp.id}", json={"role_id": r2.id})
+    assert res.status_code == 200
+
+    db.refresh(emp)
+    primary_roles = [er for er in emp.employee_roles if er.is_primary]
+    assert len(primary_roles) == 1
+    assert primary_roles[0].role_id == r2.id
+
+
+def test_patch_employee_writes_history_tables(client: TestClient, db: Session):
+    from app.models.salary_revision import SalaryRevision
+    from app.models.assignment import EmployeeAssignment
+
+    dept1 = Department(name="DeptA", code="DA")
+    dept2 = Department(name="DeptB", code="DB")
+    db.add_all([dept1, dept2])
+    db.commit()
+
+    emp = _emp(db, dept1, "history.tester@auraworkforce.io", salary=Decimal("100000.00"))
+
+    # Initial history count
+    rev_count_before = db.query(SalaryRevision).filter(SalaryRevision.employee_id == emp.id).count()
+    asg_count_before = db.query(EmployeeAssignment).filter(EmployeeAssignment.employee_id == emp.id).count()
+
+    # Update salary -> writes SalaryRevision
+    res_sal = client.patch(f"/api/v1/employees/{emp.id}", json={"salary": 120000})
+    assert res_sal.status_code == 200
+    rev_after = db.query(SalaryRevision).filter(SalaryRevision.employee_id == emp.id).all()
+    assert len(rev_after) == rev_count_before + 1
+    latest_rev = rev_after[-1]
+    assert latest_rev.new_annual_fixed == Decimal("120000.00")
+    assert latest_rev.previous_annual_fixed == Decimal("100000.00")
+
+    # Update department -> writes EmployeeAssignment
+    res_dept = client.patch(f"/api/v1/employees/{emp.id}", json={"department_id": dept2.id})
+    assert res_dept.status_code == 200
+    asg_after = db.query(EmployeeAssignment).filter(EmployeeAssignment.employee_id == emp.id).all()
+    assert len(asg_after) == asg_count_before + 1
+    latest_asg = asg_after[-1]
+    assert latest_asg.department_id == dept2.id
+
+
+def test_department_employees_include_inactive(client: TestClient, db: Session):
+    dept = Department(name="RosterDept", code="RST")
+    db.add(dept)
+    db.commit()
+
+    e_active = _emp(db, dept, "active.roster@auraworkforce.io", is_active=True)
+    e_inactive = _emp(db, dept, "inactive.roster@auraworkforce.io", is_active=False)
+
+    res_active_only = client.get(f"/api/v1/departments/{dept.id}/employees")
+    assert res_active_only.status_code == 200
+    ids_active_only = [item["id"] for item in res_active_only.json()["items"]]
+    assert e_active.id in ids_active_only
+    assert e_inactive.id not in ids_active_only
+
+    res_all = client.get(f"/api/v1/departments/{dept.id}/employees?include_inactive=true")
+    assert res_all.status_code == 200
+    ids_all = [item["id"] for item in res_all.json()["items"]]
+    assert e_active.id in ids_all
+    assert e_inactive.id in ids_all
+
+
+def test_roles_listing_endpoint(client: TestClient, db: Session):
+    role = Role(title="Cloud Architect", code="CA_01")
+    db.add(role)
+    db.commit()
+
+    res = client.get("/api/v1/roles")
+    assert res.status_code == 200
+    titles = [r["title"] for r in res.json()]
+    assert "Cloud Architect" in titles
+
+    res_single = client.get(f"/api/v1/roles/{role.id}")
+    assert res_single.status_code == 200
+    assert res_single.json()["code"] == "CA_01"
+
+
+def test_health_ready_checks_database(client: TestClient):
+    res_top = client.get("/health/ready")
+    assert res_top.status_code == 200
+    assert res_top.json()["status"] == "ok"
+    assert res_top.json()["database"] == "connected"
+
+    res_v1 = client.get("/api/v1/health/ready")
+    assert res_v1.status_code == 200
+    assert res_v1.json()["status"] == "ok"
+
 
 
 

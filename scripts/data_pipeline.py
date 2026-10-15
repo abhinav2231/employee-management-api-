@@ -1,8 +1,9 @@
 from datetime import date, datetime, time
 from decimal import Decimal
+import json
 import os
 import random
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 import numpy as np
 import pandas as pd
@@ -21,22 +22,22 @@ MASTER_DATASET_PATH = os.path.join(
     "01_LedgerForge_Python_Master_Dataset.xlsx",
 )
 
+FIXTURES_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "tests",
+    "fixtures",
+)
 
-def parse_time_str(val: Any) -> Optional[time]:
+
+def parse_time_str(val: Any) -> Optional[str]:
     if val is None or pd.isna(val):
         return None
     if isinstance(val, time):
-        return val
+        return val.strftime("%H:%M")
     if isinstance(val, datetime):
-        return val.time()
-    try:
-        s = str(val).strip()
-        parts = s.split(":")
-        if len(parts) >= 2:
-            return time(int(parts[0]), int(parts[1]))
-    except Exception:
-        pass
-    return None
+        return val.strftime("%H:%M")
+    s = str(val).strip()
+    return s if s and s != "nan" else None
 
 
 def parse_date_val(val: Any) -> Optional[date]:
@@ -52,8 +53,11 @@ def parse_date_val(val: Any) -> Optional[date]:
         return None
 
 
-
-def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str, Any]:
+def load_and_clean_master_dataset(
+    recent_attendance_months: Optional[int] = None,
+    export_payroll_fixture: bool = True,
+) -> Dict[str, Any]:
+    """Loads and cleans the complete LedgerForge Master Dataset from Excel."""
     if not os.path.exists(MASTER_DATASET_PATH):
         raise FileNotFoundError(f"Master dataset file not found at: {MASTER_DATASET_PATH}")
 
@@ -63,101 +67,54 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
 
     xl = pd.ExcelFile(MASTER_DATASET_PATH)
 
+    # 1. Departments
     df_depts = xl.parse("departments")
     departments = []
     for _, row in df_depts.iterrows():
+        dept_id = str(row["department_id"]).strip()
         departments.append({
-            "code": str(row["department_id"]).strip(),
-            "name": str(row["department_name"]).strip(),
+            "department_id": dept_id,
+            "department_name": str(row["department_name"]).strip(),
             "cost_center": str(row["cost_center"]).strip() if pd.notna(row.get("cost_center")) else None,
             "description": str(row["description"]).strip() if pd.notna(row.get("description")) else None,
             "is_active": True,
+            # Legacy compatibility keys
+            "code": dept_id,
+            "name": str(row["department_name"]).strip(),
         })
 
+    # 2. Roles
     df_roles = xl.parse("roles")
     roles = []
     for _, row in df_roles.iterrows():
+        role_id = str(row["role_id"]).strip()
         roles.append({
-            "code": str(row["role_id"]).strip(),
-            "department_code": str(row["department_id"]).strip() if pd.notna(row.get("department_id")) else None,
-            "title": str(row["role_title"]).strip(),
-            "level": str(row["level"]).strip() if pd.notna(row.get("level")) else "L2",
+            "role_id": role_id,
+            "department_id": str(row["department_id"]).strip() if pd.notna(row.get("department_id")) else None,
+            "role_title": str(row["role_title"]).strip(),
+            "level": int(row["level"]) if pd.notna(row.get("level")) else None,
+            "grade": str(row["grade"]).strip() if pd.notna(row.get("grade")) else None,
+            "band_min_annual": int(row["band_min_annual"]) if pd.notna(row.get("band_min_annual")) else None,
+            "band_mid_annual": int(row["band_mid_annual"]) if pd.notna(row.get("band_mid_annual")) else None,
+            "band_max_annual": int(row["band_max_annual"]) if pd.notna(row.get("band_max_annual")) else None,
+            "overtime_eligible": str(row.get("overtime_eligible", "N")).strip().upper(),
+            "band_year": int(row["band_year"]) if pd.notna(row.get("band_year")) else 2026,
             "is_active": True,
+            # Legacy compatibility keys
+            "code": role_id,
+            "title": str(row["role_title"]).strip(),
+            "department_code": str(row["department_id"]).strip() if pd.notna(row.get("department_id")) else None,
         })
 
+    # 3. Salary Revisions (Map latest salary for employees)
     df_sal_rev = xl.parse("salary_revisions")
     df_sal_sorted = df_sal_rev.sort_values("effective_from")
     latest_salary_map: Dict[str, Decimal] = {}
-    for _, row in df_sal_sorted.iterrows():
-        emp_id = str(row["employee_id"]).strip()
-        val = row.get("new_annual_fixed")
-        if pd.notna(val) and float(val) > 0:
-            latest_salary_map[emp_id] = Decimal(str(int(val)))
-
-    df_emp = xl.parse("employees")
-    employees = []
-    used_emails = set()
-
-    for idx, row in df_emp.iterrows():
-        emp_code = str(row["employee_id"]).strip()
-        first_name = str(row["first_name"]).strip()
-        last_name = str(row["last_name"]).strip()
-
-        base_email = f"{first_name.lower()}.{last_name.lower()}@auraworkforce.io"
-        if base_email in used_emails:
-            clean_code = emp_code.lower().replace("-", "")
-            email = f"{first_name.lower()}.{last_name.lower()}.{clean_code}@auraworkforce.io"
-        else:
-            email = base_email
-        used_emails.add(email)
-
-        phone_number = "+91" + fake.random_element(["6", "7", "8", "9"]) + fake.numerify("#########")
-        hire_date = parse_date_val(row.get("hire_date"))
-        exit_date = parse_date_val(row.get("exit_date"))
-        dob = parse_date_val(row.get("date_of_birth"))
-        status_str = str(row.get("employment_status", "Active")).strip()
-        is_active = (status_str.lower() == "active")
-        exit_type = str(row.get("exit_type")).strip() if pd.notna(row.get("exit_type")) else None
-        exit_reason = str(row.get("exit_reason")).strip() if pd.notna(row.get("exit_reason")) else None
-        work_mode = str(row.get("work_mode", "Hybrid")).strip() if pd.notna(row.get("work_mode")) else "Hybrid"
-        pf_val = str(row.get("pf_applicable", "")).strip().upper()
-        pf_applicable = True if pf_val in ["Y", "YES", "TRUE", "1"] else False if pf_val in ["N", "NO", "FALSE", "0"] else None
-        esi_val = str(row.get("esi_applicable", "")).strip().upper()
-        esi_applicable = True if esi_val in ["Y", "YES", "TRUE", "1"] else False if esi_val in ["N", "NO", "FALSE", "0"] else None
-
-        salary = latest_salary_map.get(emp_code, Decimal("500000.00"))
-        dept_code = str(row.get("department_id", "D01")).strip()
-        role_code = str(row.get("role_id", "R002")).strip()
-        manager_code = str(row["manager_id"]).strip() if pd.notna(row.get("manager_id")) else None
-
-        employees.append({
-            "employee_code": emp_code,
-            "first_name": first_name,
-            "last_name": last_name,
-            "email": email,
-            "phone_number": phone_number,
-            "date_of_birth": dob,
-            "department_code": dept_code,
-            "role_code": role_code,
-            "manager_code": manager_code,
-            "salary": salary,
-            "hire_date": hire_date or date(2022, 1, 1),
-            "exit_date": exit_date,
-            "employment_status": status_str,
-            "exit_type": exit_type,
-            "exit_reason": exit_reason,
-            "work_mode": work_mode,
-            "pf_applicable": pf_applicable,
-            "esi_applicable": esi_applicable,
-            "is_active": is_active,
-            "work_location": str(row.get("work_location", "Bangalore")).strip(),
-            "employment_type": str(row.get("employment_type", "Permanent")).strip(),
-        })
-
     salary_revisions = []
+
     for _, row in df_sal_sorted.iterrows():
-        rev_code = str(row["revision_id"]).strip()
-        emp_code = str(row["employee_id"]).strip()
+        rev_id = str(row["revision_id"]).strip()
+        emp_id = str(row["employee_id"]).strip()
         eff_from = parse_date_val(row.get("effective_from"))
         reason = str(row["revision_reason"]).strip() if pd.notna(row.get("revision_reason")) else None
         prev_fixed = Decimal(str(int(row["previous_annual_fixed"]))) if pd.notna(row.get("previous_annual_fixed")) else None
@@ -166,10 +123,14 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
         pct = Decimal(str(round(float(row["pct_change"]), 2))) if pd.notna(row.get("pct_change")) else None
         role_after = str(row["role_id_after"]).strip() if pd.notna(row.get("role_id_after")) else None
         approved = str(row["approved_by"]).strip() if pd.notna(row.get("approved_by")) else None
+
         if eff_from and new_fixed > 0:
+            latest_salary_map[emp_id] = new_fixed
             salary_revisions.append({
-                "revision_code": rev_code,
-                "employee_code": emp_code,
+                "revision_id": rev_id,
+                "revision_code": rev_id,
+                "employee_id": emp_id,
+                "employee_code": emp_id,
                 "effective_from": eff_from,
                 "revision_reason": reason,
                 "previous_annual_fixed": prev_fixed,
@@ -179,142 +140,223 @@ def load_and_clean_master_dataset(recent_attendance_months: int = 4) -> Dict[str
                 "approved_by": approved,
             })
 
+    # 4. Employees
+    df_emp = xl.parse("employees")
+    employees = []
+
+    for _, row in df_emp.iterrows():
+        emp_id = str(row["employee_id"]).strip()
+        first_name = str(row["first_name"]).strip()
+        last_name = str(row["last_name"]).strip()
+        full_name = str(row.get("full_name", f"{first_name} {last_name}")).strip()
+        work_email = str(row["work_email"]).strip().lower()
+
+        phone_number = "+91" + fake.random_element(["6", "7", "8", "9"]) + fake.numerify("#########")
+        hire_date = parse_date_val(row.get("hire_date"))
+        exit_date = parse_date_val(row.get("exit_date"))
+        dob = parse_date_val(row.get("date_of_birth"))
+        resignation_date = parse_date_val(row.get("resignation_date"))
+
+        status_str = str(row.get("employment_status", "Active")).strip()
+        is_active = (status_str.lower() == "active")
+        exit_type = str(row.get("exit_type")).strip() if pd.notna(row.get("exit_type")) else None
+        exit_reason = str(row.get("exit_reason")).strip() if pd.notna(row.get("exit_reason")) else None
+
+        if pd.isna(row.get("work_mode")):
+            raise ValueError(f"Missing work_mode for employee '{emp_id}'")
+        work_mode = str(row["work_mode"]).strip()
+
+        pf_val = str(row.get("pf_applicable", "Y")).strip().upper()
+        pf_applicable = "Y" if pf_val in ["Y", "YES", "TRUE", "1"] else "N"
+        esi_val = str(row.get("esi_applicable", "N")).strip().upper()
+        esi_applicable = "Y" if esi_val in ["Y", "YES", "TRUE", "1"] else "N"
+
+        if emp_id not in latest_salary_map:
+            raise ValueError(f"Missing salary record for employee '{emp_id}'")
+        salary = latest_salary_map[emp_id]
+
+        if pd.isna(row.get("department_id")):
+            raise ValueError(f"Missing department_id for employee '{emp_id}'")
+        dept_id = str(row["department_id"]).strip()
+
+        if pd.isna(row.get("role_id")):
+            raise ValueError(f"Missing role_id for employee '{emp_id}'")
+        role_id = str(row["role_id"]).strip()
+        mgr_id = str(row["manager_id"]).strip() if pd.notna(row.get("manager_id")) else None
+
+        if not hire_date:
+            raise ValueError(f"Missing hire_date for employee '{emp_id}'")
+
+        employees.append({
+            "employee_id": emp_id,
+            "employee_code": emp_id,
+            "first_name": first_name,
+            "last_name": last_name,
+            "full_name": full_name,
+            "work_email": work_email,
+            "email": work_email,
+            "phone_number": phone_number,
+            "gender": str(row["gender"]).strip() if pd.notna(row.get("gender")) else None,
+            "date_of_birth": dob,
+            "department_id": dept_id,
+            "department_code": dept_id,
+            "role_id": role_id,
+            "role_code": role_id,
+            "manager_id": mgr_id,
+            "manager_code": mgr_id,
+            "salary": salary,
+            "hire_date": hire_date,
+            "exit_date": exit_date,
+            "employment_status": status_str,
+            "employment_type": str(row.get("employment_type", "Permanent")).strip(),
+            "exit_type": exit_type,
+            "exit_reason": exit_reason,
+            "work_location": str(row.get("work_location", "Bengaluru")).strip(),
+            "work_mode": work_mode,
+            "highest_education": str(row["highest_education"]).strip() if pd.notna(row.get("highest_education")) else None,
+            "prior_experience_years": Decimal(str(row["prior_experience_years"])) if pd.notna(row.get("prior_experience_years")) else None,
+            "career_gap_months": int(row["career_gap_months"]) if pd.notna(row.get("career_gap_months")) else 0,
+            "commute_distance_km": Decimal(str(row["commute_distance_km"])) if pd.notna(row.get("commute_distance_km")) else None,
+            "pf_applicable": pf_applicable,
+            "esi_applicable": esi_applicable,
+            "notice_period_days": int(row["notice_period_days"]) if pd.notna(row.get("notice_period_days")) else 30,
+            "resignation_date": resignation_date,
+            "is_active": is_active,
+        })
+
+    # 5. Employee Assignments
     df_asg = xl.parse("employee_assignments")
     assignments = []
     for _, row in df_asg.iterrows():
-        asg_code = str(row["assignment_id"]).strip()
-        emp_code = str(row["employee_id"]).strip()
+        asg_id = str(row["assignment_id"]).strip()
+        emp_id = str(row["employee_id"]).strip()
         eff_from = parse_date_val(row.get("effective_from"))
         eff_to = parse_date_val(row.get("effective_to"))
-        dept_code = str(row["department_id"]).strip() if pd.notna(row.get("department_id")) else None
-        role_code = str(row["role_id"]).strip() if pd.notna(row.get("role_id")) else None
+        dept_id = str(row["department_id"]).strip() if pd.notna(row.get("department_id")) else None
+        role_id = str(row["role_id"]).strip() if pd.notna(row.get("role_id")) else None
         lvl = int(row["job_level"]) if pd.notna(row.get("job_level")) else None
-        mgr_code = str(row["manager_id"]).strip() if pd.notna(row.get("manager_id")) else None
+        mgr_id = str(row["manager_id"]).strip() if pd.notna(row.get("manager_id")) else None
         reason = str(row["change_reason"]).strip() if pd.notna(row.get("change_reason")) else None
         if eff_from:
             assignments.append({
-                "assignment_code": asg_code,
-                "employee_code": emp_code,
+                "assignment_id": asg_id,
+                "assignment_code": asg_id,
+                "employee_id": emp_id,
+                "employee_code": emp_id,
                 "effective_from": eff_from,
                 "effective_to": eff_to,
-                "department_code": dept_code,
-                "role_code": role_code,
+                "department_id": dept_id,
+                "department_code": dept_id,
+                "role_id": role_id,
+                "role_code": role_id,
                 "job_level": lvl,
-                "manager_code": mgr_code,
+                "manager_id": mgr_id,
+                "manager_code": mgr_id,
                 "change_reason": reason,
             })
 
-    df_pi = xl.parse("payroll_items")
-    salaries = []
-    min_pay_date = pd.to_datetime("2026-01-01")
-    df_pi_filtered = df_pi[df_pi["period_start"] >= min_pay_date]
-    if len(df_pi_filtered) == 0:
-        df_pi_filtered = df_pi
+    # 6. Salary Structures
+    df_struct = xl.parse("salary_structures")
+    salary_structures = []
+    for _, row in df_struct.iterrows():
+        struct_id = str(row["structure_id"]).strip()
+        emp_id = str(row["employee_id"]).strip()
+        comp_id = str(row["component_id"]).strip()
+        comp_name = str(row["component_name"]).strip()
+        comp_type = str(row["component_type"]).strip()
+        amt = Decimal(str(int(row["monthly_amount"])))
+        eff_from = parse_date_val(row.get("effective_from"))
+        eff_to = parse_date_val(row.get("effective_to"))
+        rev_id = str(row["revision_id"]).strip() if pd.notna(row.get("revision_id")) else None
 
-    exit_date_map = {e["employee_code"]: e["exit_date"] for e in employees if e.get("exit_date")}
-
-    for _, row in df_pi_filtered.iterrows():
-        emp_code = str(row["employee_id"]).strip()
-        period_start = pd.to_datetime(row["period_start"])
-        period_end = pd.to_datetime(row["period_end"])
-        pay_period = period_start.strftime("%Y-%m")
-
-        emp_exit = exit_date_map.get(emp_code)
-        eff_date = period_end.date()
-        if emp_exit and period_start.date() <= emp_exit < period_end.date():
-            eff_date = emp_exit
-
-        basic = float(row.get("basic", 0.0))
-        allowances = float(
-            row.get("hra", 0.0)
-            + row.get("conveyance", 0.0)
-            + row.get("medical", 0.0)
-            + row.get("special_allowance", 0.0)
-        )
-        bonuses = float(row.get("variable_pay", 0.0) + row.get("overtime_pay", 0.0))
-        deductions = float(row.get("total_deductions", 0.0))
-        net_pay = float(row.get("net_pay", 0.0))
-
-        salaries.append({
-            "employee_code": emp_code,
-            "pay_period": pay_period,
-            "effective_date": eff_date,
-            "base_salary": round(Decimal(str(basic)), 2),
-            "allowances": round(Decimal(str(allowances)), 2),
-            "bonuses": round(Decimal(str(bonuses)), 2),
-            "deductions": round(Decimal(str(deductions)), 2),
-            "net_salary": round(Decimal(str(net_pay)), 2),
-            "currency": "INR",
-            "payment_status": "PAID",
+        salary_structures.append({
+            "structure_id": struct_id,
+            "employee_id": emp_id,
+            "component_id": comp_id,
+            "component_name": comp_name,
+            "component_type": comp_type,
+            "monthly_amount": amt,
+            "effective_from": eff_from,
+            "effective_to": eff_to,
+            "revision_id": rev_id,
         })
 
+    # 7. Attendance
     df_att = xl.parse("attendance")
-    max_att_date = pd.to_datetime(df_att["attendance_date"]).max()
-    min_att_date = max_att_date - pd.DateOffset(months=recent_attendance_months) if pd.notna(max_att_date) else pd.to_datetime("2026-06-01")
-    df_att_recent = df_att[df_att["attendance_date"] >= min_att_date]
-    if len(df_att_recent) == 0:
-        df_att_recent = df_att.tail(20000)
+    if recent_attendance_months:
+        max_att_date = pd.to_datetime(df_att["attendance_date"]).max()
+        min_att_date = max_att_date - pd.DateOffset(months=recent_attendance_months)
+        df_att = df_att[df_att["attendance_date"] >= min_att_date]
 
     attendance = []
-    for _, row in df_att_recent.iterrows():
-        emp_code = str(row["employee_id"]).strip()
-        att_date = pd.to_datetime(row["attendance_date"]).date()
-        raw_status = str(row.get("status", "PRESENT")).strip().upper()
-        raw_leave = row.get("leave_type_code")
-        leave_code = None
-        if pd.notna(raw_leave):
-            clean_leave = str(raw_leave).strip().upper()
-            if clean_leave and clean_leave not in ["NAN", "NONE"]:
-                leave_code = clean_leave
-
-        if raw_status == "ABSENT_LOP":
-            status = "ABSENT_LOP"
-        elif raw_status == "HALF_DAY_UNPAID":
-            status = "HALF_DAY_UNPAID"
-        elif raw_status == "UNPAID_LEAVE" or leave_code in ["LWP", "LOP"] or "UNPAID" in raw_status:
-            status = "UNPAID_LEAVE"
-        elif raw_status == "PAID_LEAVE" or (leave_code and "LEAVE" in raw_status):
-            status = "PAID_LEAVE"
-        elif raw_status in ["WFH", "REMOTE"]:
-            status = "REMOTE"
-        elif "HALF" in raw_status:
-            status = "HALF_DAY"
-        elif "ABSENT" in raw_status:
-            status = "ABSENT"
-        elif "PRESENT" in raw_status:
-            status = "PRESENT"
-        elif leave_code:
-            status = "PAID_LEAVE"
-        else:
-            status = "PRESENT"
-
+    for _, row in df_att.iterrows():
+        att_id = str(row["attendance_id"]).strip()
+        emp_id = str(row["employee_id"]).strip()
+        att_date = parse_date_val(row.get("attendance_date"))
+        weekday = str(row["weekday"]).strip() if pd.notna(row.get("weekday")) else None
+        status = str(row["status"]).strip().upper()
+        leave_code = str(row["leave_type_code"]).strip() if pd.notna(row.get("leave_type_code")) else None
         check_in = parse_time_str(row.get("check_in"))
         check_out = parse_time_str(row.get("check_out"))
         hours_raw = row.get("hours_worked")
         hours_worked = Decimal(str(round(float(hours_raw), 2))) if pd.notna(hours_raw) else None
-
-        notes = None
-        if leave_code:
-            notes = f"Leave Code: {leave_code}"
-        elif status == "REMOTE":
-            notes = "Work From Home"
+        ot_raw = row.get("overtime_hours")
+        overtime_hours = Decimal(str(round(float(ot_raw), 2))) if pd.notna(ot_raw) else None
+        late_flag = str(row["late_flag"]).strip().upper() if pd.notna(row.get("late_flag")) else None
+        source = str(row["source"]).strip() if pd.notna(row.get("source")) else None
+        dq_flag = str(row["data_quality_flag"]).strip() if pd.notna(row.get("data_quality_flag")) else None
+        dept_id = str(row["department_id"]).strip() if pd.notna(row.get("department_id")) else None
 
         attendance.append({
-            "employee_code": emp_code,
+            "attendance_id": att_id,
+            "employee_id": emp_id,
+            "employee_code": emp_id,
+            "attendance_date": att_date,
             "date": att_date,
+            "weekday": weekday,
             "status": status,
+            "leave_type_code": leave_code,
             "check_in": check_in,
             "check_out": check_out,
             "hours_worked": hours_worked,
-            "notes": notes,
+            "overtime_hours": overtime_hours,
+            "late_flag": late_flag,
+            "source": source,
+            "data_quality_flag": dq_flag,
+            "notes": dq_flag,
+            "department_id": dept_id,
         })
+
+    # 8. Payroll Items (Export as test fixture answer key)
+    if export_payroll_fixture:
+        os.makedirs(FIXTURES_DIR, exist_ok=True)
+        fixture_path = os.path.join(FIXTURES_DIR, "payroll_items_expected.json")
+        if not os.path.exists(fixture_path):
+            df_pi = xl.parse("payroll_items")
+            pi_records = []
+            for _, r in df_pi.iterrows():
+                item_id = str(r.get("payroll_item_id") or r.get("item_id") or "").strip()
+                run_id = str(r.get("run_id") or r.get("payroll_run_id") or "").strip()
+                emp_id = str(r.get("employee_id") or "").strip()
+                pi_records.append({
+                    "payroll_item_id": item_id,
+                    "run_id": run_id,
+                    "employee_id": emp_id,
+                    "period_start": str(parse_date_val(r.get("period_start"))),
+                    "period_end": str(parse_date_val(r.get("period_end"))),
+                    "gross_pay": float(r.get("gross_pay", 0.0) or 0.0),
+                    "total_deductions": float(r.get("total_deductions", 0.0) or 0.0),
+                    "net_pay": float(r.get("net_pay", 0.0) or 0.0),
+                })
+            with open(fixture_path, "w", encoding="utf-8") as f:
+                json.dump(pi_records, f)
 
     return {
         "departments": departments,
         "roles": roles,
         "employees": employees,
-        "salaries": salaries,
-        "attendance": attendance,
-        "assignments": assignments,
         "salary_revisions": salary_revisions,
+        "assignments": assignments,
+        "salary_structures": salary_structures,
+        "attendance": attendance,
     }

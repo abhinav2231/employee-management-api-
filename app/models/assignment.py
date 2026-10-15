@@ -2,6 +2,7 @@ from datetime import date
 from typing import Optional, TYPE_CHECKING
 from sqlalchemy import String, Date, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.ext.hybrid import hybrid_property
 
 from app.core.database import Base
 from app.models.base import TimestampMixin
@@ -15,28 +16,27 @@ if TYPE_CHECKING:
 class EmployeeAssignment(Base, TimestampMixin):
     __tablename__ = "employee_assignments"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    assignment_code: Mapped[Optional[str]] = mapped_column(String(20), unique=True, nullable=True, index=True)
-    employee_id: Mapped[int] = mapped_column(
-        ForeignKey("employees.id", ondelete="CASCADE"),
+    assignment_id: Mapped[str] = mapped_column(String(30), primary_key=True)
+    employee_id: Mapped[str] = mapped_column(
+        ForeignKey("employees.employee_id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    effective_from: Mapped[date] = mapped_column(Date, nullable=False)
+    effective_from: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     effective_to: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    department_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("departments.id", ondelete="SET NULL"),
+    department_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("departments.department_id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    role_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("roles.id", ondelete="SET NULL"),
+    role_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("roles.role_id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    job_level: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    manager_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("employees.id", ondelete="SET NULL"),
+    job_level: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    manager_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("employees.employee_id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -50,5 +50,22 @@ class EmployeeAssignment(Base, TimestampMixin):
     department: Mapped[Optional["Department"]] = relationship("Department")
     role: Mapped[Optional["Role"]] = relationship("Role")
 
+    @hybrid_property
+    def id(self) -> str:
+        return self.assignment_id
+
+    @id.setter
+    def id(self, val: str):
+        self.assignment_id = val
+
+    @hybrid_property
+    def assignment_code(self) -> str:
+        return self.assignment_id
+
+    @assignment_code.setter
+    def assignment_code(self, val: str):
+        self.assignment_id = val
+
     def __repr__(self) -> str:
-        return f"<EmployeeAssignment(code='{self.assignment_code}', employee_id={self.employee_id}, reason='{self.change_reason}')>"
+        return f"<EmployeeAssignment(id='{self.assignment_id}', emp='{self.employee_id}', from={self.effective_from})>"
+

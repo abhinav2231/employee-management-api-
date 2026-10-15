@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from sqlalchemy import (
     String,
     Date,
@@ -23,19 +23,19 @@ class SalaryRecord(Base, TimestampMixin):
     __tablename__ = "salary_records"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    employee_id: Mapped[int] = mapped_column(
-        ForeignKey("employees.id", ondelete="CASCADE"),
+    employee_id: Mapped[str] = mapped_column(
+        ForeignKey("employees.employee_id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    pay_period: Mapped[str] = mapped_column(String(7), nullable=False, index=True)
+    pay_period: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     effective_date: Mapped[date] = mapped_column(Date, nullable=False)
     
-    base_salary: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    allowances: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    bonuses: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    deductions: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    net_salary: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    base_salary: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    allowances: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    bonuses: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    deductions: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    net_salary: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(10), default="INR", nullable=False)
     payment_status: Mapped[str] = mapped_column(String(20), default="PAID", nullable=False)
 
@@ -49,7 +49,4 @@ class SalaryRecord(Base, TimestampMixin):
     employee: Mapped["Employee"] = relationship("Employee", back_populates="salary_records")
 
     def __repr__(self) -> str:
-        return (
-            f"<SalaryRecord(id={self.id}, employee_id={self.employee_id}, "
-            f"pay_period='{self.pay_period}', net_salary={self.net_salary}, status='{self.payment_status}')>"
-        )
+        return f"<SalaryRecord(employee_id='{self.employee_id}', period='{self.pay_period}', net={self.net_salary})>"

@@ -1,8 +1,9 @@
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from app.core.config import settings
+from app.core.database import get_db
 from app.core.exceptions import register_exception_handlers
 from app.api.v1.api import api_router
 from app.api.v1.endpoints import employees, departments
@@ -22,10 +23,12 @@ def create_application() -> FastAPI:
 
     register_exception_handlers(application)
 
+    origins = [settings.CORS_ORIGINS] if isinstance(settings.CORS_ORIGINS, str) else list(settings.CORS_ORIGINS)
+    allow_all = "*" in origins
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=origins,
+        allow_credentials=not allow_all,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -36,12 +39,19 @@ def create_application() -> FastAPI:
 
     @application.get(
         "/health",
-        response_model=HealthResponse,
         status_code=status.HTTP_200_OK,
         tags=["Health"],
     )
-    def top_level_health() -> HealthResponse:
-        return health_service.get_health()
+    def top_level_health() -> dict:
+        return {"status": "ok"}
+
+    @application.get(
+        "/health/ready",
+        status_code=status.HTTP_200_OK,
+        tags=["Health"],
+    )
+    def top_level_readiness(db = Depends(get_db)) -> dict:
+        return health_service.check_readiness(db=db)
 
     application.include_router(api_router, prefix=settings.API_V1_STR)
 

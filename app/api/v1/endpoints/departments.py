@@ -40,7 +40,7 @@ def list_departments(
     status_code=status.HTTP_200_OK,
 )
 def get_department(
-    id: int = Path(..., ge=1),
+    id: str = Path(..., description="Department ID (e.g. D01) or code"),
     db: Session = Depends(get_db),
 ) -> DepartmentResponse:
     return department_service.get_department_details(db=db, department_id=id)
@@ -53,7 +53,7 @@ def get_department(
 )
 def update_department(
     dept_in: DepartmentUpdate,
-    id: int = Path(..., ge=1),
+    id: str = Path(..., description="Department ID (e.g. D01) or code"),
     db: Session = Depends(get_db),
 ) -> DepartmentResponse:
     return department_service.update_department(db=db, department_id=id, dept_in=dept_in)
@@ -64,7 +64,7 @@ def update_department(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def delete_department(
-    id: int = Path(..., ge=1),
+    id: str = Path(..., description="Department ID (e.g. D01) or code"),
     db: Session = Depends(get_db),
 ) -> None:
     department_service.delete_department(db=db, department_id=id)
@@ -76,9 +76,10 @@ def delete_department(
     status_code=status.HTTP_200_OK,
 )
 def get_department_employees(
-    id: int = Path(..., ge=1),
+    id: str = Path(..., description="Department ID (e.g. D01) or code"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
+    include_inactive: bool = Query(False),
     db: Session = Depends(get_db),
 ) -> PaginatedResponse[EmployeeResponse]:
     return department_service.get_department_employees(
@@ -86,4 +87,5 @@ def get_department_employees(
         department_id=id,
         page=page,
         size=size,
+        include_inactive=include_inactive,
     )

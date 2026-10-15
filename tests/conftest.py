@@ -10,7 +10,13 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.models import Base
 
-is_container = os.path.exists("/.dockerenv")
+is_container = (
+    os.getenv("RUNNING_IN_CONTAINER", "").lower() in ("true", "1")
+    or os.getenv("IS_CONTAINER", "").lower() in ("true", "1")
+    or os.getenv("CONTAINER", "").lower() in ("true", "1")
+    or os.path.exists("/.dockerenv")
+    or os.path.exists("/run/.containerenv")
+)
 host = settings.POSTGRES_SERVER if is_container or settings.POSTGRES_SERVER != "db" else "localhost"
 TEST_DB_URI = os.getenv(
     "TEST_DATABASE_URL",
@@ -67,6 +73,7 @@ def db() -> Generator[Session, None, None]:
         "attendance",
         "salary_records",
         "salary_revisions",
+        "salary_structures",
         "employee_assignments",
         "employee_roles",
         "employees",

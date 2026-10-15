@@ -28,10 +28,11 @@ def view_data() -> None:
             print(f"[{d.code}] {d.name:<22} | Cost Center: {d.cost_center or 'N/A':<7} | Employees: {emp_count:<3} | Active: {d.is_active}")
 
         print("\n--- [2] ROLES ---")
+        total_roles = db.query(Role).count()
         roles = db.query(Role).order_by(Role.id).limit(15).all()
         for r in roles:
             print(f"[{r.code or 'N/A'}] ID: {r.id:<3} | Title: {r.title:<34} | Level: {r.level or 'N/A'}")
-        print("  ... (showing 15 of 58 roles)")
+        print(f"  ... (showing {len(roles)} of {total_roles} roles)")
 
         print("\n--- [3] EMPLOYEES ROSTER (SAMPLE) ---")
         employees = db.query(Employee).order_by(Employee.id).limit(20).all()
