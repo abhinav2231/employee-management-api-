@@ -22,42 +22,45 @@ def view_data() -> None:
         print("=" * 80)
 
         print("\n--- [1] DEPARTMENTS ---")
-        departments = db.query(Department).order_by(Department.id).all()
+        departments = db.query(Department).order_by(Department.department_id).all()
         for d in departments:
             emp_count = len(d.employees)
-            print(f"[{d.code}] {d.name:<22} | Cost Center: {d.cost_center or 'N/A':<7} | Employees: {emp_count:<3} | Active: {d.is_active}")
+            print(f"[{d.department_id}] {d.department_name:<22} | Cost Center: {d.cost_center or 'N/A':<7} | Employees: {emp_count:<3} | Active: {d.is_active}")
 
         print("\n--- [2] ROLES ---")
         total_roles = db.query(Role).count()
-        roles = db.query(Role).order_by(Role.id).limit(15).all()
+        roles = db.query(Role).order_by(Role.role_id).limit(15).all()
         for r in roles:
-            print(f"[{r.code or 'N/A'}] ID: {r.id:<3} | Title: {r.title:<34} | Level: {r.level or 'N/A'}")
+            print(f"[{r.role_id}] Title: {r.role_title:<34} | Dept: {r.department_id or 'N/A':<4} | Level: {r.level or 'N/A'}")
         print(f"  ... (showing {len(roles)} of {total_roles} roles)")
 
         print("\n--- [3] EMPLOYEES ROSTER (SAMPLE) ---")
-        employees = db.query(Employee).order_by(Employee.id).limit(20).all()
+        employees = db.query(Employee).order_by(Employee.employee_id).limit(20).all()
         header = f"{'Code':<10} {'Name':<22} {'Dept':<6} {'Role':<30} {'Salary (INR)':<14} {'Manager':<16} {'Status'}"
         print(header)
         print("-" * len(header))
 
         for e in employees:
-            dept_code = e.department.code if e.department else "N/A"
-            primary_roles = [er.role.title for er in e.employee_roles if er.is_primary]
-            role_title = primary_roles[0] if primary_roles else "No Primary Role"
+            dept_code = e.department_id or "N/A"
+            if e.role:
+                role_title = e.role.role_title
+            else:
+                primary_roles = [er.role.title for er in e.employee_roles if er.is_primary]
+                role_title = primary_roles[0] if primary_roles else "No Primary Role"
             manager_name = f"{e.manager.first_name} {e.manager.last_name}" if e.manager else "None (CEO)"
-            status = "Active" if e.is_active else "Inactive"
-            name = f"{e.first_name} {e.last_name}"
-            salary_str = f"INR {e.salary:,.0f}"
-            emp_code = e.employee_code or f"ID:{e.id}"
+            status = e.employment_status or ("Active" if e.is_active else "Inactive")
+            name = e.full_name or f"{e.first_name} {e.last_name}"
+            salary_str = f"INR {e.salary:,.0f}" if e.salary else "N/A"
 
-            print(f"{emp_code:<10} {name:<22} {dept_code:<6} {role_title:<30} {salary_str:<14} {manager_name:<16} {status}")
+            print(f"{e.employee_id:<10} {name:<22} {dept_code:<6} {role_title[:29]:<30} {salary_str:<14} {manager_name[:15]:<16} {status}")
 
         print("\n--- [4] ORGANIZATIONAL HIERARCHY TREE ---")
         top_managers = db.query(Employee).filter(Employee.manager_id.is_(None)).all()
         for top in top_managers:
-            print(f"+ {top.first_name} {top.last_name} ({top.department.name})")
-            for rep in top.direct_reports:
-                print(f"  |--> {rep.first_name} {rep.last_name} ({rep.email})")
+            dept_name = top.department.department_name if top.department else "N/A"
+            print(f"+ {top.full_name} ({dept_name})")
+            for rep in top.direct_reports[:10]:
+                print(f"  |--> {rep.full_name} ({rep.work_email})")
 
         print("\n" + "=" * 80)
 

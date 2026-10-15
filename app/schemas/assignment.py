@@ -11,7 +11,7 @@ class EmployeeAssignmentResponse(BaseModel):
     effective_to: Optional[date] = None
     department_id: Optional[str] = None
     role_id: Optional[str] = None
-    job_level: Optional[int] = None
+    job_level: Optional[Union[str, int]] = None
     manager_id: Optional[str] = None
     change_reason: Optional[str] = None
 

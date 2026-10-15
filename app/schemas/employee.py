@@ -206,8 +206,9 @@ class EmployeeUpdate(BaseModel):
     @field_validator("hire_date")
     @classmethod
     def validate_hire_date_not_future(cls, v: Optional[date]) -> Optional[date]:
-        if v is not None and v > settings.DEMO_TODAY:
-            raise ValueError(f"Joining date cannot be after {settings.DEMO_TODAY}")
+        cut_off = max(date.today(), settings.DEMO_TODAY)
+        if v is not None and v > cut_off:
+            raise ValueError(f"Joining date cannot be in the future (after {cut_off})")
         return v
 
 

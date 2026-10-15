@@ -342,6 +342,12 @@ def seed_database(
 def main():
     parser = argparse.ArgumentParser(description="LedgerForge / Aura Workforce OS Master Dataset Seeder")
     parser.add_argument(
+        "command",
+        nargs="?",
+        choices=["reset"],
+        help="Optional positional 'reset' command per LedgerForge specification",
+    )
+    parser.add_argument(
         "--reset",
         action="store_true",
         help="Truncate all tables before seeding",
@@ -357,14 +363,9 @@ def main():
         help="Add 50 extra employees using Faker seed 2026",
     )
     args = parser.parse_args()
+    do_reset = args.reset or (args.command == "reset")
 
-    if args.reset and not args.force and sys.stdin.isatty():
-        confirm = input("Are you sure you want to truncate all tables? (y/N): ").strip().lower()
-        if confirm != "y":
-            print("[INFO] Seeding aborted by user.")
-            sys.exit(0)
-
-    summary = seed_database(reset=args.reset, add_extra_50=args.extra_50)
+    summary = seed_database(reset=do_reset, add_extra_50=args.extra_50)
     print("Master dataset seeded successfully:")
     print(f"  Departments:       {summary['departments_total']}")
     print(f"  Roles:             {summary['roles_total']}")

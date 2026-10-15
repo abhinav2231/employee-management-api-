@@ -38,7 +38,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Create Test Database
         run: |
@@ -53,10 +53,11 @@ jobs:
           alembic downgrade base
           alembic upgrade head
 
-      - name: Run Master Dataset Seeder
+      - name: Run Master Dataset Seeder (and idempotency check)
         env:
           DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/aura_workforce_db
         run: |
+          python -m scripts.seed reset
           python -m scripts.seed
 
       - name: Run Pytest Test Suite
