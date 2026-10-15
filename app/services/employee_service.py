@@ -4,7 +4,7 @@ import re
 from typing import Optional, Any, List
 from sqlalchemy import or_, func, desc, asc
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
 from app.core.exceptions import (
@@ -13,7 +13,7 @@ from app.core.exceptions import (
     BadRequestException,
 )
 from app.models.department import Department
-from app.models.role import Role, EmployeeRole
+from app.models.role import Role
 from app.models.employee import Employee
 from app.models.salary_revision import SalaryRevision
 from app.models.assignment import EmployeeAssignment
@@ -222,15 +222,22 @@ class EmployeeService:
             db.flush()
         except IntegrityError as exc:
             db.rollback()
+            constraint = getattr(getattr(exc, "orig", None), "diag", None)
+            constraint_name = getattr(constraint, "constraint_name", None) or ""
             err_msg = str(exc).lower()
-            if "employee_id" in err_msg or "employee_code" in err_msg or "pkey" in err_msg:
+            if constraint_name == "employees_pkey" or "employee_id" in constraint_name or "pkey" in constraint_name or "employees_pkey" in err_msg or "primary key" in err_msg:
                 raise ConflictException(
                     f"Employee with code '{final_code}' already exists",
                     field="employee_code",
                 )
+            if constraint_name == "ix_employees_work_email" or "work_email" in constraint_name or "ix_employees_work_email" in err_msg or "email" in err_msg:
+                raise ConflictException(
+                    f"Employee with work email '{clean_email}' already exists",
+                    field="email",
+                )
             raise ConflictException(
-                f"Employee with work email '{clean_email}' already exists",
-                field="email",
+                f"Employee with code '{final_code}' already exists",
+                field="employee_code",
             )
 
         # Log initial career assignment
@@ -398,7 +405,7 @@ class EmployeeService:
 
     @staticmethod
     def _deactivate_employee_helper(db: Session, employee: Employee) -> None:
-        """Shared deactivation routine: reparents direct reports, sets is_active=False and DEMO_TODAY exit date."""
+        """Shared deactivation routine: reparents direct reports, sets is_active=False, closes open assignments, and sets DEMO_TODAY exit date."""
         for report in employee.direct_reports:
             report.manager_id = employee.manager_id
         employee.is_active = False
@@ -406,6 +413,18 @@ class EmployeeService:
             employee.exit_date = settings.DEMO_TODAY
         if employee.employment_status in (None, "Active"):
             employee.employment_status = "Deactivated"
+
+        # Close any open assignments
+        open_asgs = (
+            db.query(EmployeeAssignment)
+            .filter(
+                EmployeeAssignment.employee_id == employee.employee_id,
+                EmployeeAssignment.effective_to.is_(None),
+            )
+            .all()
+        )
+        for asg in open_asgs:
+            asg.effective_to = employee.exit_date or settings.DEMO_TODAY
 
     @staticmethod
     def update_employee(
@@ -576,10 +595,36 @@ class EmployeeService:
             if "exit_reason" in update_data:
                 employee.exit_reason = update_data["exit_reason"]
 
+            # Ensure open assignments are closed with exit_date
+            open_asgs = (
+                db.query(EmployeeAssignment)
+                .filter(
+                    EmployeeAssignment.employee_id == employee.employee_id,
+                    EmployeeAssignment.effective_to.is_(None),
+                )
+                .all()
+            )
+            for asg in open_asgs:
+                asg.effective_to = employee.exit_date or settings.DEMO_TODAY
+
         try:
             db.commit()
-        except IntegrityError:
+        except IntegrityError as exc:
             db.rollback()
+            constraint = getattr(getattr(exc, "orig", None), "diag", None)
+            constraint_name = getattr(constraint, "constraint_name", None) or ""
+            err_msg = str(exc).lower()
+            if constraint_name == "employees_pkey" or "employee_id" in constraint_name or "pkey" in constraint_name or "employees_pkey" in err_msg or "primary key" in err_msg:
+                raise ConflictException(
+                    f"Employee with code '{employee.employee_id}' already exists",
+                    field="employee_code",
+                )
+            if constraint_name == "ix_employees_work_email" or "work_email" in constraint_name or "ix_employees_work_email" in err_msg or "email" in err_msg:
+                conflict_email = clean_email if "clean_email" in locals() else employee.work_email
+                raise ConflictException(
+                    f"Employee with work email '{conflict_email}' already exists",
+                    field="email",
+                )
             raise ConflictException("Database integrity conflict occurred during update", field="email")
 
         db.refresh(employee)

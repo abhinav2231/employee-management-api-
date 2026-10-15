@@ -14,16 +14,16 @@ To enable client, web, and backend teams to build concurrently before all 20 roa
 
 1. **Draft API Contracts:**
    - [`docs/openapi_draft.json`](docs/openapi_draft.json): Maintained **OpenAPI 3.1.0 specification** detailing **64 operations across 49 distinct paths**, spanning all 20 roadmap tasks (Core Workforce, Auth/RBAC, Payroll/Compliance, Attendance/Leaves, and Analytics/Reporting).
-   - [`docs/api_contract.md`](docs/api_contract.md): Human-readable Markdown contract with endpoint tables, query filters, sort syntax (`sort=field|-field`), natural primary keys, standard error envelopes, and privacy access policies.
+   - [`docs/api-contract.md`](docs/api-contract.md): Human-readable Markdown contract with endpoint tables, query filters, sort syntax (`sort=field|-field`), natural primary keys, standard error envelopes, and privacy access policies.
 2. **Realistic Sample Dataset:**
    - [`data/sample_employees.json`](data/sample_employees.json): 10 realistic employee records formatted according to the updated schema with natural text keys and full workbook attributes.
    - [`data/sample_employees.csv`](data/sample_employees.csv): CSV representation of the sample data for spreadsheet and ingestion tools.
-3. **Clean Standardized Dataset Exports (in [`data/exports/`](data/exports/) and [`exports/`](exports/)):**
-   - [`employees.csv`](data/exports/employees.csv): All 745 employees with all 27 sheet attributes and natural keys (`EMP-XXXX`).
-   - [`salary_structures.csv`](data/exports/salary_structures.csv): 12,295 salary component breakdown records.
-   - [`attendance.csv`](data/exports/attendance.csv): All 150,155 attendance records across the full 18-month history (`2025-04-01` to `2026-09-30`).
-   - [`salary_revisions.csv`](data/exports/salary_revisions.csv): 2,459 historical compensation adjustments.
-   - [`assignments.csv`](data/exports/assignments.csv): 1,606 career progression records.
+3. **Clean Standardized Dataset Exports (in [`exports/`](exports/)):**
+   - [`employees.csv`](exports/employees.csv): All 745 employees with all 27 sheet attributes and natural keys (`EMP-XXXX`).
+   - [`salary_structures.csv`](exports/salary_structures.csv): 12,295 salary component breakdown records.
+   - [`attendance.csv`](exports/attendance.csv): All 150,155 attendance records across the full 18-month history (`2025-04-01` to `2026-09-30`).
+   - [`salary_revisions.csv`](exports/salary_revisions.csv): 2,459 historical compensation adjustments.
+   - [`assignments.csv`](exports/assignments.csv): 1,606 career progression records.
 4. **Authoritative Calculation Answer Key:**
    - [`tests/fixtures/payroll_items_expected.json`](tests/fixtures/payroll_items_expected.json): 7,340 payroll calculation benchmark records exported from the workbook's `payroll_items` sheet, serving as the test fixture answer key for subsequent payroll engine tasks.
 5. **Verified Test Suite:**
@@ -111,27 +111,31 @@ employee_management_api/
 │   │   └── employee_service.py  # Employee CRUD, cycle prevention, inactive manager checks, assignment history
 │   └── main.py                  # FastAPI factory & app instance
 ├── data/
-│   ├── 01_LedgerForge_Python_Master_Dataset.xlsx # Master dataset (Zenith Nova Technologies benchmark)
-│   ├── sample_employees.json    # Realistic sample dataset (10 records with natural keys)
-│   ├── sample_employees.csv     # Realistic sample CSV
-│   └── exports/                 # Standardized CSV exports
-│       ├── employees.csv        # 745 employee records with all 27 sheet attributes
-│       ├── salary_structures.csv# 12,295 salary component breakdown records
-│       ├── attendance.csv       # 150,155 attendance logs across full 18-month history
-│       ├── salary_revisions.csv # 2,459 historical compensation revision records
-│       └── assignments.csv      # 1,606 career progression records
+│   ├── seed/
+│   │   └── 01_LedgerForge_Python_Master_Dataset.xlsx # Master dataset workbook
+│   ├── sample_employees.json    # 10 realistic employee sample records (natural keys)
+│   └── sample_employees.csv     # Sample CSV representation
 ├── docs/
-│   ├── api_contract.md          # Comprehensive multi-phase API contract
-│   ├── er_diagram.md            # Data model and architectural decisions
-│   └── openapi_draft.json       # Maintained OpenAPI 3.1 specification draft (64 operations)
+│   ├── api-contract.md          # Comprehensive multi-phase API contract
+│   ├── er_diagram.md            # Mermaid ER diagram & architectural decisions
+│   └── openapi_draft.json       # OpenAPI 3.1.0 specification draft (64 operations)
+├── exports/                     # Clean standardized CSV data exports
+│   ├── employees.csv            # 745 employee records
+│   ├── salary_structures.csv    # 12,295 component breakdown records
+│   ├── attendance.csv           # 150,155 attendance logs
+│   ├── salary_revisions.csv     # 2,459 compensation adjustments
+│   └── assignments.csv          # 1,606 career progression records
+├── reports/
+│   └── phase-1-review.md        # Phase 1 milestone review summary
 ├── scripts/
-│   ├── entrypoint.sh            # Container startup script (runs alembic upgrade head, eol=lf)
-│   ├── data_pipeline.py         # Full dataset extraction, cleanings & test fixture dump
-│   ├── seed.py                  # Master idempotent database seeder (natural keys, bulk insert, --extra-50)
-│   ├── extra_fake.py            # Generator for 50 additional synthetic employees (Faker seed 2026)
-│   ├── export_csv.py            # High-performance CSV export utility
+│   ├── entrypoint.sh            # Container startup script (runs alembic upgrade head)
+│   ├── data_pipeline.py         # Workbook extraction, cleaning & fixture export
+│   ├── seed.py                  # Idempotent database seeder (supports reset & --extra-50)
+│   ├── extra_fake.py            # Generator for 50 synthetic employees (Faker seed 2026)
+│   ├── export_csv.py            # Database-to-CSV export utility
+│   ├── generate_openapi.py      # OpenAPI 3.1.0 specification generator
 │   ├── init_test_db.sql         # Postgres auto-init script for aura_workforce_test_db
-│   └── view_data.py             # CLI database visualizer
+│   └── view_data.py             # CLI database overview utility
 ├── tests/
 │   ├── conftest.py              # Auto-provisioning test database runner (aura_workforce_test_db)
 │   ├── fixtures/
@@ -349,12 +353,12 @@ Covering:
   - **Salary Revisions:** 2,459 historical compensation adjustments (`salary_revisions`).
   - **Salary Component Structures:** 12,295 active component breakdown records (`salary_structures`).
   - **Attendance History:** 150,155 attendance logs across the full 18-month history (`2025-04-01` to `2026-09-30`).
-- **Standardized CSV Exports in [`data/exports/`](data/exports/) and [`exports/`](exports/):**
-  - [`employees.csv`](data/exports/employees.csv): 745 employee records with all 27 sheet attributes.
-  - [`salary_structures.csv`](data/exports/salary_structures.csv): 12,295 component breakdown records.
-  - [`attendance.csv`](data/exports/attendance.csv): 150,155 attendance records with explicit statuses (`WFH`, `PRESENT`, `PAID_LEAVE`, `UNPAID_LEAVE`, `HALF_DAY_UNPAID`, `ABSENT_LOP`).
-  - [`salary_revisions.csv`](data/exports/salary_revisions.csv): 2,459 compensation adjustments.
-  - [`assignments.csv`](data/exports/assignments.csv): 1,606 career progression records.
+- **Standardized CSV Exports in [`exports/`](exports/):**
+  - [`employees.csv`](exports/employees.csv): 745 employee records with all 27 sheet attributes.
+  - [`salary_structures.csv`](exports/salary_structures.csv): 12,295 component breakdown records.
+  - [`attendance.csv`](exports/attendance.csv): 150,155 attendance records with explicit statuses (`WFH`, `PRESENT`, `PAID_LEAVE`, `UNPAID_LEAVE`, `HALF_DAY_UNPAID`, `ABSENT_LOP`).
+  - [`salary_revisions.csv`](exports/salary_revisions.csv): 2,459 compensation adjustments.
+  - [`assignments.csv`](exports/assignments.csv): 1,606 career progression records.
 
 ---
 

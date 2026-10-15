@@ -3,7 +3,6 @@ import logging
 import os
 import sys
 from typing import Any, Dict, List, Optional
-from decimal import Decimal
 
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 

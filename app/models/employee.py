@@ -80,6 +80,7 @@ class Employee(Base, TimestampMixin):
         Index("ix_employees_name", "last_name", "first_name"),
         Index("ix_employees_dept_active", "department_id", "is_active"),
         Index("ix_employees_status", "employment_status"),
+        Index("ix_employees_full_name", "full_name"),
     )
 
     department: Mapped["Department"] = relationship("Department", back_populates="employees")

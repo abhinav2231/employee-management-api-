@@ -3,7 +3,7 @@ from decimal import Decimal
 import json
 import os
 import random
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -16,11 +16,10 @@ np.random.seed(RANDOM_SEED)
 
 fake = Faker("en_IN")
 
-MASTER_DATASET_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "01_LedgerForge_Python_Master_Dataset.xlsx",
-)
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_SEED_PATH = os.path.join(_REPO_ROOT, "data", "seed", "01_LedgerForge_Python_Master_Dataset.xlsx")
+_DATA_PATH = os.path.join(_REPO_ROOT, "data", "01_LedgerForge_Python_Master_Dataset.xlsx")
+MASTER_DATASET_PATH = _SEED_PATH if os.path.exists(_SEED_PATH) else _DATA_PATH
 
 FIXTURES_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "supersecretkey-for-local-development-change-in-production"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_MINUTES: int = 60
+    REFRESH_TOKEN_DAYS: int = 7
 
     # Demo cut-off date per LedgerForge specification
     DEMO_TODAY: date = date(2026, 9, 30)

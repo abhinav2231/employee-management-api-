@@ -274,6 +274,7 @@ def test_unique_department_and_role_constraints(db: Session):
     dept1 = Department(name="Security", code="SEC")
     db.add(dept1)
     db.commit()
+    db.expunge_all()
 
     # Duplicate department code
     dup_dept = Department(name="Information Security", code="SEC")
@@ -286,6 +287,7 @@ def test_unique_department_and_role_constraints(db: Session):
     role1 = Role(title="Security Analyst")
     db.add(role1)
     db.commit()
+    db.expunge_all()
 
     dup_role = Role(title="Security Analyst")
     db.add(dup_role)

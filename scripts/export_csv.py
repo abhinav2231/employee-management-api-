@@ -13,8 +13,6 @@ from app.core.database import SessionLocal, engine
 
 engine.echo = False
 from app.models.employee import Employee
-from app.models.role import Role
-from app.models.department import Department
 from app.models.salary_structure import SalaryStructure
 from app.models.attendance import Attendance
 from app.models.salary_revision import SalaryRevision
@@ -22,14 +20,11 @@ from app.models.assignment import EmployeeAssignment
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXPORTS_DIR = os.path.join(REPO_ROOT, "exports")
-DATA_EXPORTS_DIR = os.path.join(REPO_ROOT, "data", "exports")
 
 
 def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] = None) -> Dict[str, Any]:
     """Exports master tables from the database to clean standardized CSV files."""
     os.makedirs(output_dir, exist_ok=True)
-    # Also ensure data/exports directory exists
-    os.makedirs(DATA_EXPORTS_DIR, exist_ok=True)
 
     close_session = False
     if db is None:
@@ -89,7 +84,6 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] 
         df_emp = pd.DataFrame(emp_rows)
         emp_csv = os.path.join(output_dir, "employees.csv")
         df_emp.to_csv(emp_csv, index=False)
-        df_emp.to_csv(os.path.join(DATA_EXPORTS_DIR, "employees.csv"), index=False)
 
         # 2. Salary Structures Export
         structures = (
@@ -113,7 +107,6 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] 
         df_struct = pd.DataFrame(struct_rows)
         struct_csv = os.path.join(output_dir, "salary_structures.csv")
         df_struct.to_csv(struct_csv, index=False)
-        df_struct.to_csv(os.path.join(DATA_EXPORTS_DIR, "salary_structures.csv"), index=False)
 
         # 3. Attendance Export
         att_rows = []
@@ -142,7 +135,6 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] 
         df_att = pd.DataFrame(att_rows)
         att_csv = os.path.join(output_dir, "attendance.csv")
         df_att.to_csv(att_csv, index=False)
-        df_att.to_csv(os.path.join(DATA_EXPORTS_DIR, "attendance.csv"), index=False)
 
         # 4. Salary Revisions Export
         revisions = (
@@ -166,7 +158,6 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] 
         df_rev = pd.DataFrame(rev_rows)
         rev_csv = os.path.join(output_dir, "salary_revisions.csv")
         df_rev.to_csv(rev_csv, index=False)
-        df_rev.to_csv(os.path.join(DATA_EXPORTS_DIR, "salary_revisions.csv"), index=False)
 
         # 5. Assignments Export
         assignments = (
@@ -190,7 +181,6 @@ def export_database_to_csv(output_dir: str = EXPORTS_DIR, db: Optional[Session] 
         df_asg = pd.DataFrame(asg_rows)
         asg_csv = os.path.join(output_dir, "assignments.csv")
         df_asg.to_csv(asg_csv, index=False)
-        df_asg.to_csv(os.path.join(DATA_EXPORTS_DIR, "assignments.csv"), index=False)
 
         return {
             "employees_csv": emp_csv,

@@ -7,7 +7,6 @@ from app.core.database import get_db
 from app.core.exceptions import register_exception_handlers
 from app.api.v1.api import api_router
 from app.api.v1.endpoints import employees, departments
-from app.schemas.health import HealthResponse
 from app.services.health_service import health_service
 
 

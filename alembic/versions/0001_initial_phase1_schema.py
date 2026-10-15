@@ -96,6 +96,7 @@ def upgrade() -> None:
     op.create_index(op.f("ix_employees_department_id"), "employees", ["department_id"], unique=False)
     op.create_index("ix_employees_dept_active", "employees", ["department_id", "is_active"], unique=False)
     op.create_index(op.f("ix_employees_employment_status"), "employees", ["employment_status"], unique=False)
+    op.create_index(op.f("ix_employees_full_name"), "employees", ["full_name"], unique=False)
     op.create_index(op.f("ix_employees_hire_date"), "employees", ["hire_date"], unique=False)
     op.create_index(op.f("ix_employees_is_active"), "employees", ["is_active"], unique=False)
     op.create_index(op.f("ix_employees_manager_id"), "employees", ["manager_id"], unique=False)
