@@ -360,3 +360,12 @@ def load_and_clean_master_dataset(
         "salary_structures": salary_structures,
         "attendance": attendance,
     }
+
+
+if __name__ == "__main__":
+    print("Loading and cleaning master dataset from workbook...")
+    dataset = load_and_clean_master_dataset()
+    print("\nMaster dataset loaded and cleaned successfully:")
+    for key, items in dataset.items():
+        print(f"  {key:<22}: {len(items):>7} records")
+
