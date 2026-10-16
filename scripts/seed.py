@@ -31,7 +31,6 @@ def truncate_tables(db: Session) -> None:
     tables = [
         "attendance",
         "salary_structures",
-        "salary_records",
         "salary_revisions",
         "employee_assignments",
         "employee_roles",
@@ -339,22 +338,17 @@ def seed_database(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="LedgerForge / Aura Workforce OS Master Dataset Seeder")
+    parser = argparse.ArgumentParser(description="Aura Workforce OS Master Dataset Seeder")
     parser.add_argument(
         "command",
         nargs="?",
         choices=["reset"],
-        help="Optional positional 'reset' command per LedgerForge specification",
+        help="Optional positional 'reset' command to truncate tables before seeding",
     )
     parser.add_argument(
         "--reset",
         action="store_true",
         help="Truncate all tables before seeding",
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Skip confirmation prompt when resetting tables",
     )
     parser.add_argument(
         "--extra-50",

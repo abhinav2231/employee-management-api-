@@ -190,33 +190,7 @@ def upgrade() -> None:
     op.create_index(op.f("ix_salary_structures_effective_from"), "salary_structures", ["effective_from"], unique=False)
     op.create_index(op.f("ix_salary_structures_employee_id"), "salary_structures", ["employee_id"], unique=False)
 
-    # 8. salary_records
-    op.create_table(
-        "salary_records",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("employee_id", sa.String(length=20), nullable=False),
-        sa.Column("pay_period", sa.String(length=10), nullable=False),
-        sa.Column("effective_date", sa.Date(), nullable=False),
-        sa.Column("base_salary", sa.Numeric(precision=14, scale=2), nullable=False),
-        sa.Column("allowances", sa.Numeric(precision=14, scale=2), nullable=False),
-        sa.Column("bonuses", sa.Numeric(precision=14, scale=2), nullable=False),
-        sa.Column("deductions", sa.Numeric(precision=14, scale=2), nullable=False),
-        sa.Column("net_salary", sa.Numeric(precision=14, scale=2), nullable=False),
-        sa.Column("currency", sa.String(length=10), nullable=False),
-        sa.Column("payment_status", sa.String(length=20), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.CheckConstraint("base_salary >= 0", name="ck_salary_base_positive"),
-        sa.CheckConstraint("net_salary >= 0", name="ck_salary_net_positive"),
-        sa.ForeignKeyConstraint(["employee_id"], ["employees.employee_id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("employee_id", "pay_period", name="uq_salary_employee_period"),
-    )
-    op.create_index("ix_salary_emp_period", "salary_records", ["employee_id", "pay_period"], unique=False)
-    op.create_index(op.f("ix_salary_records_employee_id"), "salary_records", ["employee_id"], unique=False)
-    op.create_index(op.f("ix_salary_records_pay_period"), "salary_records", ["pay_period"], unique=False)
-
-    # 9. attendance
+    # 8. attendance
     op.create_table(
         "attendance",
         sa.Column("attendance_id", sa.String(length=30), nullable=False),
@@ -248,7 +222,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("attendance")
-    op.drop_table("salary_records")
     op.drop_table("salary_structures")
     op.drop_table("salary_revisions")
     op.drop_table("employee_assignments")

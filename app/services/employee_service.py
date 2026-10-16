@@ -222,22 +222,17 @@ class EmployeeService:
             db.flush()
         except IntegrityError as exc:
             db.rollback()
-            constraint = getattr(getattr(exc, "orig", None), "diag", None)
-            constraint_name = getattr(constraint, "constraint_name", None) or ""
-            err_msg = str(exc).lower()
-            if constraint_name == "employees_pkey" or "employee_id" in constraint_name or "pkey" in constraint_name or "employees_pkey" in err_msg or "primary key" in err_msg:
+            diag = getattr(getattr(exc, "orig", None), "diag", None)
+            constraint_name = (getattr(diag, "constraint_name", None) or "").lower()
+            err_msg = str(getattr(exc, "orig", exc)).lower()
+            if "pkey" in constraint_name or "employees_pkey" in err_msg:
                 raise ConflictException(
                     f"Employee with code '{final_code}' already exists",
                     field="employee_code",
                 )
-            if constraint_name == "ix_employees_work_email" or "work_email" in constraint_name or "ix_employees_work_email" in err_msg or "email" in err_msg:
-                raise ConflictException(
-                    f"Employee with work email '{clean_email}' already exists",
-                    field="email",
-                )
             raise ConflictException(
-                f"Employee with code '{final_code}' already exists",
-                field="employee_code",
+                f"Employee with work email '{clean_email}' already exists",
+                field="email",
             )
 
         # Log initial career assignment
@@ -262,14 +257,6 @@ class EmployeeService:
 
     @staticmethod
     def get_employee(db: Session, employee_id: Any) -> EmployeeResponse:
-        query = (
-            db.query(Employee)
-            .options(
-                joinedload(Employee.department),
-                joinedload(Employee.role),
-                joinedload(Employee.manager),
-            )
-        )
         employee = EmployeeService._find_employee(db, employee_id)
         if not employee:
             raise NotFoundException(f"Employee with ID or code '{employee_id}' not found", field="id")
@@ -510,7 +497,7 @@ class EmployeeService:
                     effective_to=None,
                     department_id=employee.department_id,
                     role_id=employee.role_id,
-                    job_level=str(employee.role.level) if employee.role and employee.role.level is not None else "1",
+                    job_level=str(employee.role.level) if employee.role and employee.role.level is not None else None,
                     manager_id=employee.manager_id,
                     change_reason="API Assignment Update",
                 )
@@ -611,15 +598,15 @@ class EmployeeService:
             db.commit()
         except IntegrityError as exc:
             db.rollback()
-            constraint = getattr(getattr(exc, "orig", None), "diag", None)
-            constraint_name = getattr(constraint, "constraint_name", None) or ""
-            err_msg = str(exc).lower()
-            if constraint_name == "employees_pkey" or "employee_id" in constraint_name or "pkey" in constraint_name or "employees_pkey" in err_msg or "primary key" in err_msg:
+            diag = getattr(getattr(exc, "orig", None), "diag", None)
+            constraint_name = (getattr(diag, "constraint_name", None) or "").lower()
+            err_msg = str(getattr(exc, "orig", exc)).lower()
+            if "pkey" in constraint_name or "employees_pkey" in err_msg:
                 raise ConflictException(
                     f"Employee with code '{employee.employee_id}' already exists",
                     field="employee_code",
                 )
-            if constraint_name == "ix_employees_work_email" or "work_email" in constraint_name or "ix_employees_work_email" in err_msg or "email" in err_msg:
+            if "work_email" in constraint_name or "ix_employees_work_email" in err_msg or "email" in err_msg:
                 conflict_email = clean_email if "clean_email" in locals() else employee.work_email
                 raise ConflictException(
                     f"Employee with work email '{conflict_email}' already exists",

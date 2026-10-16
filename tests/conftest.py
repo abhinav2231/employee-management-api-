@@ -71,7 +71,6 @@ def db() -> Generator[Session, None, None]:
     session = TestSessionLocal()
     tables = [
         "attendance",
-        "salary_records",
         "salary_revisions",
         "salary_structures",
         "employee_assignments",

@@ -1,4 +1,4 @@
-"""Extra fake employees generator using Faker with seed 2026 per LedgerForge specification."""
+"""Extra fake employees generator using Faker with seed 2026 for Aura Workforce OS."""
 
 from datetime import date
 from decimal import Decimal

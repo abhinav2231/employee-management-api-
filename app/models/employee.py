@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from app.models.department import Department
     from app.models.role import Role, EmployeeRole
     from app.models.attendance import Attendance
-    from app.models.salary import SalaryRecord
     from app.models.assignment import EmployeeAssignment
     from app.models.salary_revision import SalaryRevision
     from app.models.salary_structure import SalaryStructure
@@ -103,12 +102,6 @@ class Employee(Base, TimestampMixin):
 
     attendances: Mapped[list["Attendance"]] = relationship(
         "Attendance",
-        back_populates="employee",
-        cascade="all, delete-orphan",
-    )
-
-    salary_records: Mapped[list["SalaryRecord"]] = relationship(
-        "SalaryRecord",
         back_populates="employee",
         cascade="all, delete-orphan",
     )

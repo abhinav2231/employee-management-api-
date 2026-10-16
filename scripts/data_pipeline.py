@@ -17,9 +17,7 @@ np.random.seed(RANDOM_SEED)
 fake = Faker("en_IN")
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_SEED_PATH = os.path.join(_REPO_ROOT, "data", "seed", "01_LedgerForge_Python_Master_Dataset.xlsx")
-_DATA_PATH = os.path.join(_REPO_ROOT, "data", "01_LedgerForge_Python_Master_Dataset.xlsx")
-MASTER_DATASET_PATH = _SEED_PATH if os.path.exists(_SEED_PATH) else _DATA_PATH
+MASTER_DATASET_PATH = os.path.join(_REPO_ROOT, "data", "seed", "01_LedgerForge_Python_Master_Dataset.xlsx")
 
 FIXTURES_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -56,7 +54,7 @@ def load_and_clean_master_dataset(
     recent_attendance_months: Optional[int] = None,
     export_payroll_fixture: bool = True,
 ) -> Dict[str, Any]:
-    """Loads and cleans the complete LedgerForge Master Dataset from Excel."""
+    """Loads and cleans the complete Aura Workforce OS Master Dataset from Excel."""
     if not os.path.exists(MASTER_DATASET_PATH):
         raise FileNotFoundError(f"Master dataset file not found at: {MASTER_DATASET_PATH}")
 

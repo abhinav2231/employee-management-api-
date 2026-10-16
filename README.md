@@ -108,7 +108,8 @@ employee_management_api/
 │   ├── services/                # Business logic layer
 │   │   ├── health_service.py    # Health status & database ping checks
 │   │   ├── department_service.py# Department operations & headcount aggregation
-│   │   └── employee_service.py  # Employee CRUD, cycle prevention, inactive manager checks, assignment history
+│   │   ├── employee_service.py  # Employee CRUD, cycle prevention, inactive manager checks, assignment history
+│   │   └── role_service.py      # Role listing and lookup queries
 │   └── main.py                  # FastAPI factory & app instance
 ├── data/
 │   ├── seed/
@@ -343,7 +344,7 @@ Covering:
 
 ## 📊 Dataset Provenance & Clean Exports
 
-- **Source File:** [`data/01_LedgerForge_Python_Master_Dataset.xlsx`](data/01_LedgerForge_Python_Master_Dataset.xlsx)
+- **Source File:** [`data/seed/01_LedgerForge_Python_Master_Dataset.xlsx`](data/seed/01_LedgerForge_Python_Master_Dataset.xlsx)
 - **Scope Notice:** This pipeline implements the **Core HR & Payroll Engine** for Tasks 1–4 of the enterprise roadmap, ingesting the core workforce sheets (Departments, Roles, Employees, Employee Assignments, Salary Revisions, Salary Structures, and Attendance).
 - **Simulated Entity:** Zenith Nova Technologies Pvt Ltd (benchmark cut-off date September 30, 2026).
 - **Verified Record Counts:**

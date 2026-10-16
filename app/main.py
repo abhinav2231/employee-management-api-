@@ -1,12 +1,12 @@
 from fastapi import FastAPI, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.exceptions import register_exception_handlers
 from app.api.v1.api import api_router
-from app.api.v1.endpoints import employees, departments
 from app.services.health_service import health_service
 
 
@@ -36,34 +36,15 @@ def create_application() -> FastAPI:
     def root_redirect():
         return RedirectResponse(url="/docs")
 
-    @application.get(
-        "/health",
-        status_code=status.HTTP_200_OK,
-        tags=["Health"],
-    )
+    @application.get("/health", status_code=status.HTTP_200_OK, tags=["Health"])
     def top_level_health() -> dict:
         return {"status": "ok"}
 
-    @application.get(
-        "/health/ready",
-        status_code=status.HTTP_200_OK,
-        tags=["Health"],
-    )
-    def top_level_readiness(db = Depends(get_db)) -> dict:
+    @application.get("/health/ready", status_code=status.HTTP_200_OK, tags=["Health"])
+    def top_level_readiness(db: Session = Depends(get_db)) -> dict:
         return health_service.check_readiness(db=db)
 
     application.include_router(api_router, prefix=settings.API_V1_STR)
-
-    application.include_router(
-        employees.router,
-        prefix="/employees",
-        include_in_schema=False,
-    )
-    application.include_router(
-        departments.router,
-        prefix="/departments",
-        include_in_schema=False,
-    )
 
     return application
 

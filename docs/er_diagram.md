@@ -82,6 +82,14 @@ erDiagram
         timestamp updated_at
     }
 
+    EMPLOYEE_ROLES {
+        int id PK
+        string employee_id FK
+        string role_id FK
+        boolean is_primary
+        timestamp assigned_at
+    }
+
     EMPLOYEE_ASSIGNMENTS {
         string assignment_id PK "e.g. ASG-0001-01"
         string employee_id FK
@@ -142,7 +150,6 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-}
 ```
 
 ---
